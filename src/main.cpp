@@ -204,10 +204,12 @@ int main() {
   // Start in lane 1 (middle lane)
   int lane = 1;
   // Set a reference velocity to the target (next waypoint).
-  double ref_vel = 49.5; //mph
+  // Start it at zero, so we don't accelerate instantaneously.
+  double ref_vel = 0; //mph
+  const double GOAL_VEL = 49.5;
 
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane,&ref_vel](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane,&ref_vel,&GOAL_VEL](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -273,9 +275,23 @@ int main() {
                 // TODO: Do some logic here to handle a car in our way.
 
                 // lower velocity so we don't crash into them.
-                ref_vel = 29.5; // TODO: Make this smarter.
+                //ref_vel = 29.5; // TODO: Make this smarter.
 
+                too_close = true;
+              }
 
+              if (too_close) {
+                // slow down by about 5 m/s
+                // TODO: Video says this can be more efficient if placed when creating the actual points instead of the same
+                // value for all the points.
+                // TODO: This value also seems to high on my machine (car speeds up and slows down more quickly than in the video.
+                ref_vel -= .224;
+
+              // If we're not too close and going slower than our goal, speed up.
+              } else if (ref_vel < GOAL_VEL) {
+
+                // speed up by about 5 m/s
+                ref_vel += .224;
               }
 
 
