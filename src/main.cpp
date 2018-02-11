@@ -244,10 +244,46 @@ int main() {
           // Sensor Fusion Data, a list of all other cars on the same side of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
 
+          json msgJson;
+
           // The previous path that the car was driving.
           int prev_size = previous_path_x.size();
 
-          json msgJson;
+
+          if (prev_size > 0 ) {
+            car_s = end_path_s;
+          }
+
+          bool too_close = false;
+
+          // find the rev_v to use by checking the other cars in our lane from sensor fusion.
+          for (int i = 0; i < sensor_fusion.size(); i++) {
+            // check only car is in my lane.
+            float d = sensor_fusion[i][6];
+            if (d < (2+4*lane+2) && d > (2+4*lane-2)) {
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_speed = sqrt(vx*vx+vy*vy);
+              double check_car_s = sensor_fusion[i][5];
+
+              check_car_s+=((double)prev_size*.02*check_speed); //if using previous points, project car's s value out in time.
+              // check that the s value is greater than mine and s gap.
+              if ((check_car_s > car_s) && ((check_car_s-car_s) < 30)) {
+
+                // TODO: Do some logic here to handle a car in our way.
+
+                // lower velocity so we don't crash into them.
+                ref_vel = 29.5; // TODO: Make this smarter.
+
+
+              }
+
+
+
+            }
+          }
+
+
 
           vector<double> next_x_vals;
           vector<double> next_y_vals;
