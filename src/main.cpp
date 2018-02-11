@@ -255,8 +255,8 @@ int main() {
 
           // Create a list of widely spaced (x,y) waypoints, evenly spaced at 30m
           // Later we will interpolate these waypoints with a spline and fill it in with more points that control speed.
-          vector<double> ptsx;
-          vector<double> ptsy;
+          vector<double> way_pts_x; // ptsx in video
+          vector<double> way_pts_y; // ptsy in video
 
           // Reference x, y, and yaw states. Either we will reference the starting point as where the car is or
           // at the previous paths end point.
@@ -271,8 +271,11 @@ int main() {
             double prev_car_x = car_x - cos(car_yaw);
             double prev_car_y = car_y - sin(car_yaw);
 
-            ptsx.push_back(prev_car_x);
-            ptsy.push_back(prev_car_y);
+            way_pts_x.push_back(prev_car_x);
+            way_pts_x.push_back(car_x);
+
+            way_pts_y.push_back(prev_car_y);
+            way_pts_y.push_back(car_y);
 
           } else {
             // Otherwise, use the previous path's endpoint as a starting reference.
@@ -286,10 +289,11 @@ int main() {
             ref_yaw = atan2(ref_y-ref_y_prev, ref_x-ref_x_prev);
 
             // Use the two points that make the path tangent to previous path's end point.
-            ptsx.push_back(ref_x_prev);
-            ptsx.push_back(ref_x);
-            ptsy.push_back(ref_y_prev);
-            ptsy.push_back(ref_y);
+            way_pts_x.push_back(ref_x_prev);
+            way_pts_x.push_back(ref_x);
+
+            way_pts_y.push_back(ref_y_prev);
+            way_pts_y.push_back(ref_y);
 
           }
 
@@ -298,23 +302,23 @@ int main() {
           vector<double> next_wp1 = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
           vector<double> next_wp2 = getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
-          ptsx.push_back(next_wp0[0]);
-          ptsx.push_back(next_wp1[0]);
-          ptsx.push_back(next_wp2[0]);
+          way_pts_x.push_back(next_wp0[0]);
+          way_pts_x.push_back(next_wp1[0]);
+          way_pts_x.push_back(next_wp2[0]);
 
-          ptsy.push_back(next_wp0[1]);
-          ptsy.push_back(next_wp1[1]);
-          ptsy.push_back(next_wp2[1]);
+          way_pts_y.push_back(next_wp0[1]);
+          way_pts_y.push_back(next_wp1[1]);
+          way_pts_y.push_back(next_wp2[1]);
 
           // Shift to the car's coordinates to make the math easier later.
-          for (int i=0; i < ptsx.size(); i++) {
+          for (int i=0; i < way_pts_x.size(); i++) {
 
             // Shirt the car reference angle to 0 degrees.
-            double shift_x = ptsx[i]-ref_x;
-            double shift_y = ptsy[i]-ref_y;
+            double shift_x = way_pts_x[i]-ref_x;
+            double shift_y = way_pts_y[i]-ref_y;
 
-            ptsx[i] = (shift_x * cos(0-ref_yaw) - shift_y*sin(0-ref_yaw));
-            ptsx[i] = (shift_x * sin(0-ref_yaw) + shift_y*cos(0-ref_yaw));
+            way_pts_x[i] = (shift_x * cos(0-ref_yaw) - shift_y*sin(0-ref_yaw));
+            way_pts_y[i] = (shift_x * sin(0-ref_yaw) + shift_y*cos(0-ref_yaw));
 
           }
 
@@ -322,7 +326,7 @@ int main() {
           tk::spline spline;
 
           // Set x,y coordinates as anchor points of the spline.
-          spline.set_points(ptsx, ptsy);
+          spline.set_points(way_pts_x, way_pts_y);
 
           // Define the actual x,y points we'll be using for the planner.
           for (int i=0; i < previous_path_x.size(); i++) {
