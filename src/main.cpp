@@ -298,7 +298,7 @@ int main() {
           }
 
           // In Frenet, add evenly 30m spaced points ahead of the starting reference.
-          vector<double> next_wp0 = getXY(car_s+30, (2+4*(lane)), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          vector<double> next_wp0 = getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
           vector<double> next_wp1 = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
           vector<double> next_wp2 = getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
@@ -337,7 +337,7 @@ int main() {
 
           double target_x = 30.;
           double target_y = spline(target_x);
-          double target_dist = sqrt(target_x*target_x) + sqrt(target_y*target_y);
+          double target_dist = sqrt((target_x)*(target_x) + (target_y)*(target_y));
 
           double x_add_on = 0;
 
@@ -362,8 +362,7 @@ int main() {
             y_point += ref_y;
 
             next_x_vals.push_back(x_point);
-            //next_y_vals.push_back(y_point);
-            next_y_vals.push_back(car_y);
+            next_y_vals.push_back(y_point);
           }
 
           msgJson["next_x"] = next_x_vals;
