@@ -278,6 +278,15 @@ int main() {
                 //ref_vel = 29.5; // TODO: Make this smarter.
 
                 too_close = true;
+
+                if (lane > 0 ) {
+                  // TODO: This is simply making a lane change 30 meters ahead (spline lib and 30M waypoints make it pretty smooth.
+                  // TODO: Also we should check to make sure if there are any cars in that lane that are too near to make the change safely.
+                  // TODO: We should consider lanes to the left and right, not just hug the left lane.
+                  // TODO: Predict where cars will be in the future and set a cost function for what the optimal state for our car will be.
+                  // note: simulator operates at 50 samples per second.
+                  lane = 0;
+                }
               }
 
               if (too_close) {
