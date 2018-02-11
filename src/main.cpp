@@ -186,9 +186,9 @@ int main() {
   	istringstream iss(line);
   	double x;
   	double y;
-  	float s;
-  	float d_x;
-  	float d_y;
+  	double s;
+  	double d_x;
+  	double d_y;
   	iss >> x;
   	iss >> y;
   	iss >> s;
@@ -201,7 +201,13 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  // Start in lane 1 (middle lane)
+  int lane = 1;
+  // Set a reference velocity to the target (next waypoint).
+  double ref_vel = 49.5; //mph
+
+
+  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&lane,&ref_vel](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
