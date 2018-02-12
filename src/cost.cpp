@@ -52,7 +52,7 @@ float lane_speed(const map<int, vector<Vehicle>> & predictions, int lane) {
   for (map<int, vector<Vehicle>>::const_iterator it = predictions.begin(); it != predictions.end(); ++it) {
     int key = it->first;
     Vehicle vehicle = it->second[0];
-    if (vehicle.lane == lane && key != -1) {
+    if (vehicle.get_lane() == lane && key != -1) {
       return vehicle.v;
     }
   }
@@ -95,15 +95,15 @@ map<string, float> get_helper_data(const Vehicle & vehicle, const vector<Vehicle
   float intended_lane;
 
   if (trajectory_last.state.compare("PLCL") == 0) {
-    intended_lane = trajectory_last.lane + 1;
+    intended_lane = trajectory_last.get_lane()+ 1;
   } else if (trajectory_last.state.compare("PLCR") == 0) {
-    intended_lane = trajectory_last.lane - 1;
+    intended_lane = trajectory_last.get_lane() - 1;
   } else {
-    intended_lane = trajectory_last.lane;
+    intended_lane = trajectory_last.get_lane();
   }
 
   float distance_to_goal = vehicle.goal_s - trajectory_last.s;
-  float final_lane = trajectory_last.lane;
+  float final_lane = trajectory_last.get_lane();
   trajectory_data["intended_lane"] = intended_lane;
   trajectory_data["final_lane"] = final_lane;
   trajectory_data["distance_to_goal"] = distance_to_goal;

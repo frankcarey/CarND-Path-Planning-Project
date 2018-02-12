@@ -22,15 +22,17 @@ public:
 
   int L = 1;
 
-  int preferred_buffer = 6; // impacts "keep lane" behavior.
+  float preferred_buffer = 6; // impacts "keep lane" behavior.
 
-  int lane;
+  float s;
 
-  int s;
+  float d;
 
   float v;
 
   float a;
+
+  float yaw;
 
   float target_speed;
 
@@ -48,7 +50,8 @@ public:
   * Constructor
   */
   Vehicle();
-  Vehicle(int lane, float s, float v, float a, string state="CS");
+
+  Vehicle(float s, float d=0, float v=0, float a=0, float yaw=0, string state="CS");
 
   /**
   * Destructor
@@ -85,6 +88,11 @@ public:
 
   void configure(vector<int> road_data);
 
+  int get_lane();
+
+  bool in_my_lane(Vehicle other);
+
+  float static lane_to_d(float lane);
 };
 
 #endif
