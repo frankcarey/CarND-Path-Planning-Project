@@ -351,19 +351,18 @@ int main() {
 //          }
 
           // If we're not too close and going slower than our goal, speed up.
-          if (!too_close && (car.v < GOAL_VELOCITY)) {
+          if (!too_close && (car.target_speed < GOAL_VELOCITY)) {
             // speed up by about 5 m/s
-            car.v += .224;
-          }
-
-          if (car.v < .224) {
+            car.target_speed += .224;
+            cout << "MOR POWER!!\n";
+          } else if (car.target_speed < .224) {
             stopped = true;
             cout << "STOPPED\n";
+          } else if (car.target_speed > GOAL_VELOCITY) {
+            car.target_speed = GOAL_VELOCITY;
+            cout << "SLOW YER ROLE!!\n";
           }
-
-          if (car.v > GOAL_VELOCITY) {
-            car.v = GOAL_VELOCITY;
-          }
+          cout << car.target_speed << "\n";
 
 
           vector<double> next_x_vals;
@@ -467,7 +466,7 @@ int main() {
             // here we will always output 50 points.
             for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
 
-              double N = (target_dist / (.02 * car.v / 2.24));
+              double N = (target_dist / (.02 * car.target_speed / 2.24));
               double x_point = x_add_on + (target_x) / N;
               double y_point = spline(x_point);
 
