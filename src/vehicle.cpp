@@ -48,7 +48,7 @@ vector<Vehicle> Vehicle::choose_next_state(map<int, vector<Vehicle>> predictions
   vector<string> final_states;
   vector<vector<Vehicle>> final_trajectories;
 
-  for (vector<string>::iterator it = states.begin(); it != states.end(); ++it) {
+  for (auto it = states.begin(); it != states.end(); ++it) {
     vector<Vehicle> trajectory = generate_trajectory(*it, predictions);
     if (trajectory.size() != 0) {
       cost = calculate_cost(*this, predictions, trajectory);
@@ -57,7 +57,7 @@ vector<Vehicle> Vehicle::choose_next_state(map<int, vector<Vehicle>> predictions
     }
   }
 
-  vector<float>::iterator best_cost = min_element(begin(costs), end(costs));
+  auto best_cost = min_element(begin(costs), end(costs));
   int best_idx = distance(begin(costs), best_cost);
   return final_trajectories[best_idx];
 }
@@ -222,19 +222,21 @@ void Vehicle::increment(int dt = 1) {
 }
 
 float Vehicle::position_at(int t) {
-  return this->s + this->v*t + this->a*t*t/2.0;
+  return this->s + this->v*t + this->a*t*t/(float)2.0;
 }
 
-bool Vehicle::get_vehicle_behind(map<int, vector<Vehicle>> predictions, int lane, Vehicle & rVehicle) {
+bool Vehicle::get_vehicle_behind(map<int, vector<Vehicle>> other_cars, int lane, Vehicle & rVehicle) {
   /*
   Returns a true if a vehicle is found behind the current vehicle, false otherwise. The passed reference
   rVehicle is updated if a vehicle is found.
   */
-  int max_s = -1;
+  float max_s = -1;
   bool found_vehicle = false;
   Vehicle temp_vehicle;
-  for (map<int, vector<Vehicle>>::iterator it = predictions.begin(); it != predictions.end(); ++it) {
-    temp_vehicle = it->second[0];
+  for (auto &it : other_cars) {
+    // FYI: for a map<first, second>, it->second[0] would be the first instance of the second type (so the first vehicle).
+    Vehicle other_car = it.second[0];
+
     if (temp_vehicle.get_lane() == this->get_lane() && temp_vehicle.s < this->s && temp_vehicle.s > max_s) {
       max_s = temp_vehicle.s;
       rVehicle = temp_vehicle;
@@ -249,11 +251,12 @@ bool Vehicle::get_vehicle_ahead(map<int, vector<Vehicle>> predictions, int lane,
   Returns a true if a vehicle is found ahead of the current vehicle, false otherwise. The passed reference
   rVehicle is updated if a vehicle is found.
   */
-  int min_s = this->goal_s;
+  float min_s = this->target_s;
   bool found_vehicle = false;
   Vehicle temp_vehicle;
-  for (map<int, vector<Vehicle>>::iterator it = predictions.begin(); it != predictions.end(); ++it) {
-    temp_vehicle = it->second[0];
+  for (auto &prediction : predictions) {
+    // FYI: for a map<first, second>, it->second[0] would be the first instance of the second type (so the first vehicle).
+    temp_vehicle = prediction.second[0];
     if (temp_vehicle.get_lane() == this->get_lane() && temp_vehicle.s > this->s && temp_vehicle.s < min_s) {
       min_s = temp_vehicle.s;
       rVehicle = temp_vehicle;
@@ -275,7 +278,7 @@ vector<Vehicle> Vehicle::generate_predictions(int horizon) {
     if (i < horizon-1) {
       next_v = position_at(i+1) - s;
     }
-    predictions.push_back(Vehicle(this->get_lane(), next_s, next_v, 0));
+    predictions.emplace_back(this->get_lane(), next_s, next_v, 0);
   }
   return predictions;
 
@@ -287,28 +290,29 @@ void Vehicle::realize_next_state(vector<Vehicle> trajectory) {
   */
   Vehicle next_state = trajectory[1];
   this->state = next_state.state;
-  this->d = next_state.d;
-  this->s = next_state.s;
-  this->v = next_state.v;
-  this->a = next_state.a;
+  this->target_lane = next_state.get_lane();
+  //this->s = next_state.s;
+  this->target_speed = next_state.v;
+  //this->a = next_state.a;
 }
 
-void Vehicle::configure(vector<int> road_data) {
+void Vehicle::configure(vector<float> road_data) {
   /*
   Called by simulator before simulation begins. Sets various
   parameters which will impact the ego vehicle.
   */
-  target_speed = road_data[0];
-  lanes_available = road_data[1];
-  goal_s = road_data[2];
-  goal_lane = road_data[3];
-  max_acceleration = road_data[4];
+  target_speed = (float) road_data[0];
+  lanes_available = (int) road_data[1];
+  target_s = (float) road_data[2];
+  target_lane = (int) road_data[3];
+  max_acceleration = (float) road_data[4];
+  max_legal_speed = (float) road_data[5];
 }
 
 int Vehicle::get_lane() {
   // Lanes are 4m wide, so first divide and then subtract 1/2 a lane to center.
   // assumes 0 is the left most lane.
-  return (int) round(this->d / 4 - 0.5);
+  return Vehicle::d_to_lane(this->d);
 }
 
 float Vehicle::lane_to_d(float lane) {
@@ -317,10 +321,28 @@ float Vehicle::lane_to_d(float lane) {
   return lane*4 + 2;
 }
 
-bool Vehicle::in_my_lane(Vehicle other) {
-  const float lane_buffer = 0.5;
-  return
-      ((other.get_lane() + lane_buffer) > (this->get_lane()-lane_buffer)) // NOT CLEAR ON THE LEFT SIDE.
-      || ((other.get_lane() - lane_buffer) < (this->get_lane()+lane_buffer)) // NOT CLEAR ON OUR RIGHT SIDE.
+int Vehicle::d_to_lane(float d) {
+  // Lanes are 4m wide, so first multiply by 4 and then add 2 to center it.
+  // assumes 0 is the left most lane.
+  return (int) round(d / 4 - 0.5);
+}
+
+bool Vehicle::in_my_lane(Vehicle &other) {
+  //const float lane_buffer = 0.5;
+  int other_lane = other.get_lane();
+  if (other_lane < 0) return false;
+  int my_lane = this->get_lane();
+
+  return my_lane != other_lane;
+      //((other.get_lane() + lane_buffer) > (this->get_lane()-lane_buffer)) // NOT CLEAR ON THE LEFT SIDE.
+      //|| ((other.get_lane() - lane_buffer) < (this->get_lane()+lane_buffer)) // NOT CLEAR ON OUR RIGHT SIDE.
   ;
 }
+
+float Vehicle::distance_from_me(Vehicle &other, float time_delta) {
+  float other_car_s = other.s;
+  other_car_s += (time_delta *  other.v); //if using time_delta, project car's s value out in time.
+  return (other_car_s - this->s);
+}
+
+

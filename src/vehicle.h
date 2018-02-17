@@ -20,8 +20,6 @@ public:
 
   };
 
-  int L = 1;
-
   float preferred_buffer = 6; // impacts "keep lane" behavior.
 
   float s;
@@ -36,13 +34,15 @@ public:
 
   float target_speed;
 
+  int target_lane;
+
+  float target_s;
+
   int lanes_available;
 
   float max_acceleration;
 
-  int goal_lane;
-
-  int goal_s;
+  float max_legal_speed;
 
   string state;
 
@@ -51,7 +51,7 @@ public:
   */
   Vehicle();
 
-  Vehicle(float s, float d=0, float v=0, float a=0, float yaw=0, string state="CS");
+  Vehicle(float s, float d, float v, float a=0, float yaw=0, string state="CS");
 
   /**
   * Destructor
@@ -86,13 +86,19 @@ public:
 
   void realize_next_state(vector<Vehicle> trajectory);
 
-  void configure(vector<int> road_data);
+  void configure(vector<float> road_data);
 
   int get_lane();
 
-  bool in_my_lane(Vehicle other);
+  bool in_my_lane(Vehicle &other);
 
   float static lane_to_d(float lane);
+
+  int static d_to_lane(float d);
+
+  float distance_from_me(Vehicle &other, float time_delta = 0);
+
+
 };
 
 #endif

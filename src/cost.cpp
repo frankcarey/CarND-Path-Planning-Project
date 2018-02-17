@@ -1,9 +1,5 @@
 #include "cost.h"
-#include "vehicle.h"
-#include <functional>
-#include <iterator>
-#include <map>
-#include <math.h>
+
 
 const float REACH_GOAL = pow(10, 6);
 const float EFFICIENCY = pow(10, 5);
@@ -17,7 +13,7 @@ float goal_distance_cost(const Vehicle & vehicle, const vector<Vehicle> & trajec
   float cost;
   float distance = data["distance_to_goal"];
   if (distance > 0) {
-    cost = 1 - 2*exp(-(abs(2.0*vehicle.goal_lane - data["intended_lane"] - data["final_lane"]) / distance));
+    cost = 1 - 2*exp(-(abs(2.0*vehicle.target_lane - data["intended_lane"] - data["final_lane"]) / distance));
   } else {
     cost = 1;
   }
@@ -49,7 +45,7 @@ float lane_speed(const map<int, vector<Vehicle>> & predictions, int lane) {
   All non ego vehicles in a lane have the same speed, so to get the speed limit for a lane,
   we can just find one vehicle in that lane.
   */
-  for (map<int, vector<Vehicle>>::const_iterator it = predictions.begin(); it != predictions.end(); ++it) {
+  for (auto it = predictions.begin(); it != predictions.end(); ++it) {
     int key = it->first;
     Vehicle vehicle = it->second[0];
     if (vehicle.get_lane() == lane && key != -1) {
@@ -102,7 +98,7 @@ map<string, float> get_helper_data(const Vehicle & vehicle, const vector<Vehicle
     intended_lane = trajectory_last.get_lane();
   }
 
-  float distance_to_goal = vehicle.goal_s - trajectory_last.s;
+  float distance_to_goal = vehicle.target_s - trajectory_last.s;
   float final_lane = trajectory_last.get_lane();
   trajectory_data["intended_lane"] = intended_lane;
   trajectory_data["final_lane"] = final_lane;
