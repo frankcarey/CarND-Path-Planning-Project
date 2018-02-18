@@ -110,6 +110,7 @@ int main() {
           cout << "my d:" << car.d << "\n";
           cout << "my lane:" << car.get_lane() << "\n";
 
+          // Quick sanity check to kill the program when this happens.
           if (car.get_lane() < 0 ) {
             cout << "you've killed us!!" << "\n";
             exit(1);
@@ -162,7 +163,7 @@ int main() {
 
           // START BEHAVIOR PLANNING
           if (prev_size > 0) {
-            // TODO: This is probably going to cause issues where we need to compare the car against other cars.
+            // TODO: This is probably going to cause issues where we need to compare the car against other car's current s?
             car.s = (float) end_path_s;
           }
 
@@ -227,7 +228,6 @@ int main() {
             cout << "TOO CLOSE!!\n";
 
           }
-
 
 
           vector<float> next_x_vals;

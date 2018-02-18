@@ -243,7 +243,9 @@ void generate_spline_path(float current_s, float current_d, float target_d, floa
 
   // Fill up the rest of our path planner after filling it with previous points,
   // here we will always output 50 points.
-  for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
+  // TODO: (I reduced this to 5 as the acceleration kicked in too hard at the end of the first
+  // batch of paths..  we should account for acceleration!
+  for (int i = 1; i <= 5 - previous_path_x.size(); i++) {
 
     double N = (target_dist / (.02 * target_speed / 2.24));
     float &&x_point = (float) (x_add_on + (target_x) / N);
