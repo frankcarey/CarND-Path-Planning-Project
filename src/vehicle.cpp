@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <iostream>
 #include "vehicle.h"
-#include "cost.h"
 
 /**
  * Initializes Vehicle
@@ -25,7 +24,8 @@ Vehicle::Vehicle(float s, float d, float v, float a, float yaw, string state) {
 Vehicle::~Vehicle() {}
 
 
-vector<Vehicle> Vehicle::choose_next_state(map<int, vector<Vehicle>> predictions) {
+vector<Vehicle> Vehicle::choose_next_state(map<int, vector<Vehicle>> predictions,
+                                           std::function<float(Vehicle, map<int, vector<Vehicle>>, vector<Vehicle>)> calculate_cost) {
   /*
   Here you can implement the transition_function code from the Behavior Planning Pseudocode
   classroom concept. Your goal will be to return the best (lowest cost) trajectory corresponding
@@ -328,9 +328,8 @@ bool Vehicle::in_my_lane(Vehicle &other) {
   if (other_lane < 0) return false;
   int my_lane = this->get_lane();
 
-  return my_lane != other_lane;
-      //((other.get_lane() + lane_buffer) > (this->get_lane()-lane_buffer)) // NOT CLEAR ON THE LEFT SIDE.
-      //|| ((other.get_lane() - lane_buffer) < (this->get_lane()+lane_buffer)) // NOT CLEAR ON OUR RIGHT SIDE.
+  bool in_my_lane = (my_lane == other_lane);
+  return in_my_lane;
   ;
 }
 
@@ -338,6 +337,23 @@ float Vehicle::distance_from_me(Vehicle &other, float time_delta) {
   float other_car_s = other.s;
   other_car_s += (time_delta *  other.v); //if using time_delta, project car's s value out in time.
   return (other_car_s - this->s);
+}
+
+
+float Vehicle::accelerate(float factor) {
+  float new_a = this->a + factor;
+  if (abs(new_a) <= this->max_acceleration) {
+    this->a = new_a;
+  }
+  return new_a;
+}
+
+float Vehicle::decelerate(float factor) {
+  float new_a = this->a - factor;
+  if (abs(new_a) <= this->max_acceleration) {
+    this->a = new_a;
+  }
+  return new_a;
 }
 
 

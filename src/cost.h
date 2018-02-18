@@ -14,4 +14,4 @@ float lane_speed(const map<int, vector<Vehicle>> & predictions, int lane);
 
 map<string, float> get_helper_data(const Vehicle & vehicle, const vector<Vehicle> & trajectory, const map<int, vector<Vehicle>> & predictions);
 
-#endif
+#endif // COST_H

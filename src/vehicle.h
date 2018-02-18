@@ -1,5 +1,6 @@
 #ifndef VEHICLE_H
 #define VEHICLE_H
+
 #include <iostream>
 #include <random>
 #include <vector>
@@ -58,7 +59,7 @@ public:
   */
   virtual ~Vehicle();
 
-  vector<Vehicle> choose_next_state(map<int, vector<Vehicle>> predictions);
+  vector<Vehicle> choose_next_state(map<int, vector<Vehicle>> predictions, std::function<float(Vehicle, map<int, vector<Vehicle>>, vector<Vehicle>)> calculate_cost);
 
   vector<string> successor_states();
 
@@ -98,7 +99,12 @@ public:
 
   float distance_from_me(Vehicle &other, float time_delta = 0);
 
+  float accelerate(float factor=0.01);
+
+  float decelerate(float factor=0.01);
+
+
 
 };
 
-#endif
+#endif // VEHICLE_H

@@ -64,8 +64,8 @@ int main() {
       3,  //lanes_available
       -1, //target_s (disabled at first because we don't care.)
       1, //target_lane (starting in lane 1);
-      5, //max_acceleration (in meters per second squared)
-      MAX_LEGAL_VELOCITY, // We'll make sure not to exceed this speed.
+      5 * (float) 0.44704, //max_acceleration (in meters per second squared)
+      MAX_LEGAL_VELOCITY * (float) 0.44704 // We'll make sure not to exceed this speed. (convert to meters per second)
 
   };
 
@@ -105,8 +105,10 @@ int main() {
           car.s = j[1]["s"];
           car.d = j[1]["d"];
           car.yaw = j[1]["yaw"];
-          car.v = j[1]["speed"];
+          car.v = (float)(j[1]["speed"]) * (float) 0.44704; // convert speed to meters per second.
 
+          cout << "my v:" << car.v << "\n";
+          cout << "my a:" << car.a << "\n";
           cout << "my d:" << car.d << "\n";
           cout << "my lane:" << car.get_lane() << "\n";
 
@@ -179,9 +181,9 @@ int main() {
               check_car_s += ((double) prev_size * .02 *
                   other_vehicle.v); //if using previous points, project car's s value out in time.
               // check that the s value is greater than mine and s gap.
-              cout << (check_car_s - car.s) << "\n";
+              //cout << (check_car_s - car.s) << "\n";
               if ((check_car_s > car.s) && ((check_car_s - car.s) < 30)) {
-                cout << (check_car_s - car.s) << "\n";
+                cout << (check_car_s - car.s) << ": Close car!!\n";
                 too_close = true;
               }
             } else {
@@ -211,15 +213,17 @@ int main() {
 //          }
 
           // If we're not too close and going slower than our goal, speed up.
-          if (!too_close && (car.target_speed < car.max_legal_speed)) {
+          if (!too_close && (car.v < car.max_legal_speed)) {
             // speed up by about 5 m/s
-            car.target_speed += .224;
+            car.accelerate();
             cout << "MOR POWER!!\n";
-          } else if (car.target_speed < .224) {
+          } else if (car.v < 0.1) {
             stopped = true;
+            car.v = 1;
+            car.a = .001;
             cout << "STOPPED\n";
-          } else if (too_close || car.target_speed > car.max_legal_speed) {
-            car.target_speed = car.max_legal_speed;
+          } else if (too_close || (car.v > car.max_legal_speed)) {
+            car.decelerate();
             cout << "SLOW YER ROLE!!\n";
           }
 
@@ -229,12 +233,17 @@ int main() {
 
           }
 
+          if (car.v < 20 && car.a < 0) {
+            // do not allow reverse!
+            car.a = .001;
+            cout << "NO REVERSE!\n";
+          }
 
           vector<float> next_x_vals;
           vector<float> next_y_vals;
 
           //generate_path_spline(car, previous_path_x, previous_path_y, next_x_vals, next_y_vals);
-          generate_spline_path(car.s, car.d, Vehicle::lane_to_d(car.target_lane), car.yaw, car.target_speed, previous_path_x, previous_path_y,
+          generate_spline_path(car.s, car.d, Vehicle::lane_to_d(car.target_lane), car.yaw, car.v, car.a, previous_path_x, previous_path_y,
             next_x_vals, next_y_vals, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           msgJson["next_x"] = next_x_vals;

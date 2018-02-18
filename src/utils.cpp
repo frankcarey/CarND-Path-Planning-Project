@@ -140,7 +140,7 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
-void generate_spline_path(float current_s, float current_d, float target_d, float yaw, float target_speed,
+void generate_spline_path(float current_s, float current_d, float target_d, float yaw, float velocity, float acceleration,
                           vector<float> &previous_path_x, vector<float> &previous_path_y,
                            vector<float> &next_x_vals, vector<float> &next_y_vals,
                           vector<double> &map_waypoints_s, vector<double> &map_waypoints_x, vector<double> &map_waypoints_y)
@@ -245,9 +245,11 @@ void generate_spline_path(float current_s, float current_d, float target_d, floa
   // here we will always output 50 points.
   // TODO: (I reduced this to 5 as the acceleration kicked in too hard at the end of the first
   // batch of paths..  we should account for acceleration!
-  for (int i = 1; i <= 5 - previous_path_x.size(); i++) {
 
-    double N = (target_dist / (.02 * target_speed / 2.24));
+  for (int i = 1; i <= 5 - previous_path_x.size(); i++) {
+    velocity += acceleration;
+
+    double N = (target_dist / (.02 * velocity));
     float &&x_point = (float) (x_add_on + (target_x) / N);
     float &&y_point = (float) spline(x_point);
 

@@ -3,8 +3,8 @@
 // Created by Carey, Frank, Sr. on 2/17/18.
 //
 
-#ifndef PATH_PLANNING_UTILS_H
-#define PATH_PLANNING_UTILS_H
+#ifndef UTILS_H
+#define UTILS_H
 
 
 #include <vector>
@@ -23,10 +23,11 @@ int ClosestWaypoint(double x, double y, vector<double> &maps_x, const vector<dou
 int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y);
 vector<double> getFrenet(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y);
 vector<double> getXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
-void generate_spline_path(float current_s, float current_d, float target_d, float yaw, float target_speed, vector<float> &previous_path_x,
-                          vector<float> &previous_path_y, vector<float> &next_x_vals, vector<float> &next_y_vals,
+void generate_spline_path(float current_s, float current_d, float target_d, float yaw, float velocity, float acceleration,
+                          vector<float> &previous_path_x, vector<float> &previous_path_y,
+                          vector<float> &next_x_vals, vector<float> &next_y_vals,
                           vector<double> &map_waypoints_s, vector<double> &map_waypoints_x, vector<double> &map_waypoints_y);
 
 
-#endif //PATH_PLANNING_UTILS_H
+#endif //UTILS_H
 
