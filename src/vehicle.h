@@ -6,100 +6,137 @@
 #include <vector>
 #include <map>
 #include <string>
+#include "utils.h"
+#include "fsm.h"
 
 using namespace std;
+using namespace utils;
 
-class Vehicle {
-public:
+namespace vehicle {
+  class Vehicle {
+  public:
 
-  map<string, int> lane_direction = {{"PLCL", 1}, {"LCL", 1}, {"LCR", -1}, {"PLCR", -1}};
+    Vehicle();
 
-  struct collider{
+    explicit Vehicle(Point pt);
 
-    bool collision ; // is there a collision?
-    int  time; // time collision happens
+    double x();
+
+    double y();
+
+    double yaw();
+
+    double v();
+
+
+    Point location;
+
+    double dx;
+    double dy;
+
 
   };
 
-  double preferred_buffer = 6; // impacts "keep lane" behavior.
 
-  double s;
+  class VehicleController {
+  public:
 
-  double d;
+    VehicleController(Vehicle &vehicle, fsm::VehicleFSM fsm, Map &map);
 
-  double v;
+    map<string, int> lane_direction = {{"PLCL", 1},
+                                       {"LCL",  1},
+                                       {"LCR",  -1},
+                                       {"PLCR", -1}};
 
-  double a;
+    struct collider {
 
-  double yaw;
+      bool collision; // is there a collision?
+      int time; // time collision happens
 
-  double target_speed;
+    };
 
-  int target_lane;
+    double preferred_buffer = 6; // impacts "keep lane" behavior.
 
-  double target_s;
+    Vehicle vehicle;
 
-  int lanes_available;
+    Map map;
 
-  double max_acceleration;
+    fsm::VehicleFSM fsm;
 
-  double max_legal_speed;
+    double a;
 
-  string state;
+    double yaw;
 
-  /**
-  * Constructor
-  */
-  Vehicle();
+    double target_speed;
 
-  Vehicle(double s, double d, double v, double a=0, double yaw=0, string state="CS");
+    int target_lane;
 
-  vector<Vehicle> choose_next_state(map<int, vector<Vehicle>> predictions, std::function<double(Vehicle, map<int, vector<Vehicle>>, vector<Vehicle>)> calculate_cost);
+    double target_s;
 
-  vector<string> successor_states();
+    int lanes_available;
 
-  vector<Vehicle> generate_trajectory(string state, map<int, vector<Vehicle>> predictions);
+    double max_acceleration;
 
-  vector<double> get_kinematics(map<int, vector<Vehicle>> predictions, int lane);
+    double max_legal_speed;
 
-  vector<Vehicle> constant_speed_trajectory();
+    string state;
 
-  vector<Vehicle> keep_lane_trajectory(map<int, vector<Vehicle>> predictions);
+    /**
+    * Constructor
+    */
 
-  vector<Vehicle> lane_change_trajectory(string state, map<int, vector<Vehicle>> predictions);
+    VehicleController(Vehicle v, fsm::VehicleFSM fsm, Map &map);
 
-  vector<Vehicle> prep_lane_change_trajectory(string state, map<int, vector<Vehicle>> predictions);
+    vector<VehicleController> choose_next_state(std::map<int, vector<VehicleController>> predictions,
+                                                std::function<double(VehicleController,
+                                                                     std::map<int, vector<VehicleController>>,
+                                                                     vector<VehicleController>)> calculate_cost);
 
-  void increment(int dt);
+    vector<string> successor_states();
 
-  double position_at(int t);
+    vector<VehicleController> generate_trajectory(string state, map<int, vector<VehicleController>> predictions);
 
-  bool get_vehicle_behind(map<int, vector<Vehicle>> predictions, int lane, Vehicle & rVehicle);
+    vector<double> get_kinematics(map<int, vector<VehicleController>> predictions, int lane);
 
-  bool get_vehicle_ahead(map<int, vector<Vehicle>> predictions, int lane, Vehicle & rVehicle);
+    vector<VehicleController> constant_speed_trajectory();
 
-  vector<Vehicle> generate_predictions(int horizon=2);
+    vector<VehicleController> keep_lane_trajectory(map<int, vector<VehicleController>> predictions);
 
-  void realize_next_state(vector<Vehicle> trajectory);
+    vector<VehicleController> lane_change_trajectory(string state, map<int, vector<VehicleController>> predictions);
 
-  void configure(vector<double> road_data);
+    vector<VehicleController>
+    prep_lane_change_trajectory(string state, map<int, vector<VehicleController>> predictions);
 
-  int get_lane();
+    void increment(int dt);
 
-  bool in_my_lane(Vehicle &other);
+    double position_at(int t);
 
-  double static lane_to_d(double lane);
+    bool get_vehicle_behind(map<int, vector<VehicleController>> predictions, int lane, VehicleController &rVehicle);
 
-  int static d_to_lane(double d);
+    bool get_vehicle_ahead(map<int, vector<VehicleController>> predictions, int lane, VehicleController &rVehicle);
 
-  double distance_from_me(Vehicle &other, double time_delta = 0);
+    vector<VehicleController> generate_predictions(int horizon = 2);
 
-  double accelerate(double factor=0.01);
+    void realize_next_state(vector<VehicleController> trajectory);
 
-  double decelerate(double factor=0.01);
+    void configure(vector<double> road_data);
 
-  Vehicle clone();
+    int get_lane();
 
-};
+    bool in_my_lane(VehicleController &other);
 
+    double static lane_to_d(double lane);
+
+    int static d_to_lane(double d);
+
+    double distance_from_me(VehicleController &other, double time_delta = 0);
+
+    double accelerate(double factor = 0.01);
+
+    double decelerate(double factor = 0.01);
+
+    VehicleController clone();
+
+  };
+}
 #endif // VEHICLE_H

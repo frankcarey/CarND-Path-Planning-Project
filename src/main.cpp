@@ -5,8 +5,6 @@
 #include <iostream>
 #include <thread>
 #include <vector>
-#include "Eigen-3.3/Eigen/Core"
-#include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 #include "vehicle.h"
 #include "utils.h"
@@ -26,9 +24,10 @@ int main() {
   string map_file = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
-  utils::Map map =  utils::Map(map_file, max_s);
+  const double MAX_LEGAL_MPH = 100.5; // in MPH! TODO this is actually 50.
+  const int NUMBER_OF_LANES = 3;
+  utils::Map map =  utils::Map(map_file, max_s, MAX_LEGAL_MPH, NUMBER_OF_LANES);
 
-  const double MAX_LEGAL_VELOCITY = 100.5; // in MPH! TODO this is actually 50.
 
   // Setup details our vehicle needs.
   vector<double> road_data{
@@ -37,13 +36,13 @@ int main() {
       -1, //target_s (disabled at first because we don't care.)
       1, //target_lane (starting in lane 1);
       8 , //max_acceleration (in meters per second squared) (actual limit is 10)
-      MAX_LEGAL_VELOCITY * (double) 0.44704, // We'll make sure not to exceed this speed. (convert to meters per second)
+      MAX_LEGAL_MPH * (double) 0.44704, // We'll make sure not to exceed this speed. (convert to meters per second)
       8, //max jerk in meters per second. (actual limit is 10)
   };
 
-  Vehicle car{0, Vehicle::lane_to_d(1), 0, 0, 0, "KL"};  // start in lane 1
+  Vehicle initial_location {0, VehicleController::lane_to_d(1), 0, 0, 0, "KL"};  // start in lane 1
   car.configure(road_data);
-  Vehicle prev_car = car.clone();
+  VehicleController prev_car = car.clone();
 
   time_point <system_clock>last_update = system_clock::now();
 
@@ -114,7 +113,7 @@ int main() {
           // * [6] car's d position in frenet coordinates.
           auto sensor_fusion = j[1]["sensor_fusion"];
 
-          vector<Vehicle> other_vehicles;
+          vector<VehicleController> other_vehicles;
           double velocity;
           double vx;
           double vy;
@@ -123,7 +122,7 @@ int main() {
             vy = vehicle_data[4];
             velocity = sqrt(vx * vx + vy * vy);
 
-            other_vehicles.emplace_back(Vehicle{
+            other_vehicles.emplace_back(VehicleController{
                 vehicle_data[5], // s
                 vehicle_data[6], // d
                 utils::from_mph(velocity), // v
@@ -182,7 +181,7 @@ int main() {
 //              //                    // TODO: We should consider lanes to the left and right, not just hug the left lane.
 //              //                    // TODO: Predict where cars will be in the future and set a cost function for what the optimal state for our car will be.
 //              //                    // note: simulator operates at 50 samples per second.
-//              //                    car.d = Vehicle::lane_to_d(0);
+//              //                    car.d = VehicleController::lane_to_d(0);
 //              //                  }
 //            } else {
 //              cout << "Stuck in traffic \n";
@@ -221,8 +220,8 @@ int main() {
           vector<double> next_y_vals;
 
           //generate_path_spline(car, previous_path_x, previous_path_y, next_x_vals, next_y_vals);
-          generate_spline_path(car.s, car.d, Vehicle::lane_to_d(car.target_lane), car.yaw, car.v, car.a, previous_path_x, previous_path_y,
-            next_x_vals, next_y_vals, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          generate_spline_path(car.s, car.d, VehicleController::lane_to_d(car.target_lane), car.yaw, car.v, car.a, previous_path_x, previous_path_y,
+            next_x_vals, next_y_vals, map.waypoints_s, map.waypoints_x, map.waypoints_y);
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;

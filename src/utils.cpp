@@ -30,216 +30,30 @@ namespace utils {
     return "";
   }
 
-  int ClosestWaypoint(double x, double y, const vector<double> &maps_x, const vector<double> &maps_y) {
+  vector<Point> pt_from_xy_list(XYList l) {
+    assert(!l.x_list.empty());
+    assert(l.x_list.size() == l.y_list.size());
 
-    double closestLen = 100000; //large number
-    int closestWaypoint = 0;
+    vector<Point> points;
 
-    for (int i = 0; i < maps_x.size(); i++) {
-      double map_x = maps_x[i];
-      double map_y = maps_y[i];
-      double dist = utils::distance(x, y, map_x, map_y);
-      if (dist < closestLen) {
-        closestLen = dist;
-        closestWaypoint = i;
-      }
-
+    for (int i = 0; i < l.x_list.size(); i++) {
+      Point pt = Point(l.x_list[i], l.y_list[i]);
+      points.push_back(pt);
     }
-
-    return closestWaypoint;
-
+    return points;
   }
 
-  int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y) {
+  XYList xy_from_pt_list(vector<Point> pts) {
+    assert(!pts.empty());
 
-    int closestWaypoint = ClosestWaypoint(x, y, maps_x, maps_y);
+    vector<double> x_list;
+    vector<double> y_list;
 
-    double map_x = maps_x[closestWaypoint];
-    double map_y = maps_y[closestWaypoint];
-
-    double heading = atan2((map_y - y), (map_x - x));
-
-    double angle = fabs(theta - heading);
-    angle = min(2 * utils::pi() - angle, angle);
-
-    if (angle > utils::pi() / 4) {
-      closestWaypoint++;
-      if (closestWaypoint == maps_x.size()) {
-        closestWaypoint = 0;
-      }
+    for (auto &pt : pts) {
+      x_list.push_back(pt.x);
+      x_list.push_back(pt.y);
     }
-
-    return closestWaypoint;
-  }
-
-// Transform from Cartesian x,y coordinates to Frenet s,d coordinates
-  vector<double>
-  getFrenet(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y) {
-    int next_wp = utils::NextWaypoint(x, y, theta, maps_x, maps_y);
-
-    int prev_wp;
-    prev_wp = next_wp - 1;
-    if (next_wp == 0) {
-      prev_wp = (int) maps_x.size() - 1;
-    }
-
-    double n_x = maps_x[next_wp] - maps_x[prev_wp];
-    double n_y = maps_y[next_wp] - maps_y[prev_wp];
-    double x_x = x - maps_x[prev_wp];
-    double x_y = y - maps_y[prev_wp];
-
-    // find the projection of x onto n
-    double proj_norm = (x_x * n_x + x_y * n_y) / (n_x * n_x + n_y * n_y);
-    double proj_x = proj_norm * n_x;
-    double proj_y = proj_norm * n_y;
-
-    double frenet_d = utils::distance(x_x, x_y, proj_x, proj_y);
-
-    //see if d value is positive or negative by comparing it to a center point
-
-    double center_x = 1000 - maps_x[prev_wp];
-    double center_y = 2000 - maps_y[prev_wp];
-    double centerToPos = distance(center_x, center_y, x_x, x_y);
-    double centerToRef = distance(center_x, center_y, proj_x, proj_y);
-
-    if (centerToPos <= centerToRef) {
-      frenet_d *= -1;
-    }
-
-    // calculate s value
-    double frenet_s = 0;
-    for (int i = 0; i < prev_wp; i++) {
-      frenet_s += distance(maps_x[i], maps_y[i], maps_x[i + 1], maps_y[i + 1]);
-    }
-
-    frenet_s += distance(0, 0, proj_x, proj_y);
-
-    return {frenet_s, frenet_d};
-
-  }
-
-// Transform from Frenet s,d coordinates to Cartesian x,y
-  Point
-  getXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y) {
-    int prev_wp = -1;
-
-    while (s > maps_s[prev_wp + 1] && (prev_wp < (int) (maps_s.size() - 1))) {
-      prev_wp++;
-    }
-
-    auto wp2 = (prev_wp + 1) % maps_x.size();
-
-    double heading = atan2((maps_y[wp2] - maps_y[prev_wp]), (maps_x[wp2] - maps_x[prev_wp]));
-    // the x,y,s along the segment
-    double seg_s = (s - maps_s[prev_wp]);
-
-    double seg_x = maps_x[prev_wp] + seg_s * cos(heading);
-    double seg_y = maps_y[prev_wp] + seg_s * sin(heading);
-
-    double perp_heading = heading - pi() / 2;
-
-    double x = seg_x + d * cos(perp_heading);
-    double y = seg_y + d * sin(perp_heading);
-
-    return {x, y};
-
-  }
-
-  void
-  generate_spline_path(double current_s, double current_d, double target_d, double yaw, double velocity, double acceleration,
-                       vector<double> &previous_path_x, vector<double> &previous_path_y,
-                       vector<double> &next_x_vals, vector<double> &next_y_vals,
-                       vector<double> &map_waypoints_s, vector<double> &map_waypoints_x,
-                       vector<double> &map_waypoints_y) {
-
-    auto prev_size = previous_path_x.size();
-
-    // Create a list of widely spaced (x,y) waypoints, evenly spaced at 30m
-    // Later we will interpolate these waypoints with a spline and fill it in with more points that control speed.
-    vector<Point> way_pts;
-
-    // Reference x, y, and yaw states. Either we will reference the starting point as where the car is or
-    // at the previous paths end point.
-    Point car_pt = getXY(current_s, current_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-    car_pt.yaw = deg2rad(yaw);
-
-
-    // Use a proxy for the current car position, this will be either where we really are, or the end of the active path.
-    Point curr_car_pt = car_pt.clone();
-
-    Point prev_car_pt;
-    // If the previous points are almost empty, use the car as a starting reference
-    // and infer two points based on the car's current position and heading.
-    if (prev_size < 2) {
-      // Use the two points that make the path tangent to the car.
-      prev_car_pt = Point(curr_car_pt.x - cos(curr_car_pt.yaw), curr_car_pt.y - sin(curr_car_pt.yaw));
-
-      way_pts.push_back(prev_car_pt);
-      way_pts.push_back(curr_car_pt);
-
-    } else {
-      // Otherwise, use the previous path's endpoint as a starting reference.
-
-      // Redefine the reference state as the previous path endpoint.
-      prev_car_pt = Point(previous_path_x[prev_size - 1], previous_path_y[prev_size - 1]);
-      curr_car_pt = Point(previous_path_x[prev_size - 2], previous_path_y[prev_size - 2]);
-      curr_car_pt.yaw = atan2(curr_car_pt.y - prev_car_pt.y, curr_car_pt.x - prev_car_pt.x);
-
-      way_pts.push_back(prev_car_pt);
-      way_pts.push_back(curr_car_pt);
-
-    }
-
-    // In Frenet, add evenly 60m spaced points ahead of the starting reference. (30 gave errors sometimes)
-    way_pts.push_back(getXY(current_s + 60, target_d, map_waypoints_s, map_waypoints_x, map_waypoints_y));
-    way_pts.push_back(getXY(current_s + 120, target_d, map_waypoints_s, map_waypoints_x, map_waypoints_y));
-    way_pts.push_back(getXY(current_s + 180, target_d, map_waypoints_s, map_waypoints_x, map_waypoints_y));
-
-
-    // Shift to the car's coordinates to make the math easier later.
-    for (auto &way_pt : way_pts) {
-
-      // Shift the car reference angle to 0 degrees.
-      way_pt = way_pt.convert_to_frame(curr_car_pt);
-    }
-
-    Spline spline = Spline(way_pts);
-
-    // Define the actual x,y points we'll be using for the planner.
-    // Start by filling the next_x_vals with what's left over from previous path.
-    for (int i = 0; i < previous_path_x.size(); i++) {
-      next_x_vals.push_back(previous_path_x[i]);
-      next_y_vals.push_back(previous_path_y[i]);
-
-    }
-
-    double target_x = 30.;
-    Point pt = spline.interpolate(target_x);
-    double target_dist = sqrt(pt.x * pt.x + pt.y * pt.y);
-
-    double x_add_on = 0;
-
-    // Fill up the rest of our path planner after filling it with previous points,
-    // here we will always output 50 points.
-    // TODO: (I reduced this to 5 as the acceleration kicked in too hard at the end of the first
-    // batch of paths..  we should account for acceleration!
-    const int INCREMENTS = 50;
-    double acceleration_inc = acceleration / INCREMENTS;
-
-    for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
-      velocity += acceleration_inc;
-
-      double N = (target_dist / (.02 * velocity));
-
-      double x_point = ((target_x / N) + x_add_on);
-      Point next_pt = spline.interpolate(x_point)
-          .convert_from_frame(car_pt);
-
-      x_add_on = x_point;
-
-      next_x_vals.push_back(next_pt.x);
-      next_y_vals.push_back(next_pt.y);
-    }
+    return {x_list, y_list};
   }
 
   double from_mph(double mph) {
@@ -344,6 +158,7 @@ namespace utils {
 
   }
 
+
   Spline::Spline(vector<Point> way_pts) {
 
     vector<double> x_pts;
@@ -371,10 +186,12 @@ namespace utils {
     return new_pt;
   }
 
-  Map::Map(string map_file, double max_s) {
+  Map::Map(string map_file, double max_s, double speed_limit_mph, double n_lanes) {
 
     // The max s value before wrapping around the track back to 0
     this->max_s = max_s;
+    this->speed_limit_mph = speed_limit_mph;
+    this->n_lanes = n_lanes;
 
     // Waypoint map to read from
     ifstream in_map_(map_file.c_str(), ifstream::in);
@@ -392,11 +209,130 @@ namespace utils {
       iss >> s;
       iss >> d_x;
       iss >> d_y;
-      this->map_waypoints_x.push_back(x);
-      this->map_waypoints_y.push_back(y);
-      this->map_waypoints_s.push_back(s);
-      this->map_waypoints_dx.push_back(d_x);
-      this->map_waypoints_dy.push_back(d_y);
+      this->waypoints_x.push_back(x);
+      this->waypoints_y.push_back(y);
+      this->waypoints_s.push_back(s);
+      this->waypoints_dx.push_back(d_x);
+      this->waypoints_dy.push_back(d_y);
     }
   }
+
+  bool Map::is_lane_available(int lane) {
+    return (lane >=0) && (lane < this->n_lanes);
+  }
+
+  int Map::ClosestWaypoint(Point pt) {
+
+    double closestLen = 100000; //large number
+    int closestWaypoint = 0;
+
+    for (int i = 0; i < waypoints_x.size(); i++) {
+      double map_x = waypoints_x[i];
+      double map_y = waypoints_x[i];
+      double dist = utils::distance(pt.x, pt.y, map_x, map_y);
+      if (dist < closestLen) {
+        closestLen = dist;
+        closestWaypoint = i;
+      }
+    }
+    return closestWaypoint;
+  }
+
+  int Map::NextWaypoint(Point pt) {
+
+    int closestWaypoint = ClosestWaypoint(pt);
+
+    double waypt_x = waypoints_x[closestWaypoint];
+    double waypt_y = waypoints_y[closestWaypoint];
+
+    double heading = atan2((waypt_y - pt.y), (waypt_x - pt.x));
+
+    double angle = fabs(pt.yaw - heading);
+    angle = min(2 * utils::pi() - angle, angle);
+
+    if (angle > utils::pi() / 4) {
+      closestWaypoint++;
+      if (closestWaypoint == waypoints_x.size()) {
+        closestWaypoint = 0;
+      }
+    }
+
+    return closestWaypoint;
+  }
+
+  // Transform from Cartesian x,y coordinates to Frenet s,d coordinates
+  Frenet Map::getFrenet(Point pt) {
+    int next_wp = this->NextWaypoint(pt);
+
+    int prev_wp;
+    prev_wp = next_wp - 1;
+    if (next_wp == 0) {
+      prev_wp = (int) waypoints_x.size() - 1;
+    }
+
+    double n_x = waypoints_x[next_wp] - waypoints_x[prev_wp];
+    double n_y = waypoints_y[next_wp] - waypoints_y[prev_wp];
+    double x_x = pt.x - waypoints_x[prev_wp];
+    double x_y = pt.y - waypoints_y[prev_wp];
+
+    // find the projection of x onto n
+    double proj_norm = (x_x * n_x + x_y * n_y) / (n_x * n_x + n_y * n_y);
+    double proj_x = proj_norm * n_x;
+    double proj_y = proj_norm * n_y;
+
+    double frenet_d = utils::distance(x_x, x_y, proj_x, proj_y);
+
+    //see if d value is positive or negative by comparing it to a center point
+
+    double center_x = 1000 - waypoints_x[prev_wp];
+    double center_y = 2000 - waypoints_y[prev_wp];
+    double centerToPos = distance(center_x, center_y, x_x, x_y);
+    double centerToRef = distance(center_x, center_y, proj_x, proj_y);
+
+    if (centerToPos <= centerToRef) {
+      frenet_d *= -1;
+    }
+
+    // calculate s value
+    double frenet_s = 0;
+    for (int i = 0; i < prev_wp; i++) {
+      frenet_s += distance(waypoints_x[i], waypoints_y[i], waypoints_x[i + 1], waypoints_y[i + 1]);
+    }
+
+    frenet_s += distance(0, 0, proj_x, proj_y);
+
+    return {frenet_s, frenet_d};
+
+  }
+
+// Transform from Frenet s,d coordinates to Cartesian x,y
+  Point Map::getXY(Frenet frenet) {
+
+    int prev_wp = -1;
+
+    while (frenet.s > waypoints_s[prev_wp + 1] && (prev_wp < (int) (waypoints_s.size() - 1))) {
+      prev_wp++;
+    }
+
+    auto wp2 = (prev_wp + 1) % waypoints_x.size();
+
+    double heading = atan2((waypoints_y[wp2] - waypoints_y[prev_wp]), (waypoints_x[wp2] - waypoints_x[prev_wp]));
+    // the x,y,s along the segment
+    double seg_s = (frenet.s - waypoints_s[prev_wp]);
+
+    double seg_x = waypoints_x[prev_wp] + seg_s * cos(heading);
+    double seg_y = waypoints_y[prev_wp] + seg_s * sin(heading);
+
+    double perp_heading = heading - pi() / 2;
+
+    double x = seg_x + frenet.d * cos(perp_heading);
+    double y = seg_y + frenet.d * sin(perp_heading);
+
+    return {x, y, normalize_rad(heading)};
+
+  }
+
+  Frenet::Frenet() : s(0), d(0) {}
+  Frenet::Frenet(double s, double d) : s(s), d(d) {}
+
 }

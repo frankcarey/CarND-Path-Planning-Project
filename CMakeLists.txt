@@ -7,7 +7,7 @@ add_definitions(-std=c++11)
 set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
-set(sources src/spline.h src/vehicle.cpp src/cost.cpp src/utils.cpp)
+set(sources src/spline.h src/vehicle.cpp src/utils.cpp src/fsm.cpp)
 
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
@@ -61,6 +61,6 @@ if (CMAKE_VERSION VERSION_LESS 2.8.11)
 endif()
 
 # Now simply link against gtest or gtest_main as needed. Eg
-add_executable(path_planning_test ${sources} test/basic_test.cpp)
+add_executable(path_planning_test ${sources} test/utils_test.cpp test/vehicle_test.cpp)
 target_link_libraries(path_planning_test gtest_main )
 #add_test(NAME path_planning_test COMMAND path_planning)
