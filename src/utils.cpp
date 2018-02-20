@@ -1,6 +1,7 @@
 #include "utils.h"
+#include <sstream>
 #include <fstream>
-#include <cmath>
+
 
 using namespace std;
 
@@ -145,9 +146,9 @@ namespace utils {
   }
 
   void
-  generate_spline_path(float current_s, float current_d, float target_d, float yaw, float velocity, float acceleration,
-                       vector<float> &previous_path_x, vector<float> &previous_path_y,
-                       vector<float> &next_x_vals, vector<float> &next_y_vals,
+  generate_spline_path(double current_s, double current_d, double target_d, double yaw, double velocity, double acceleration,
+                       vector<double> &previous_path_x, vector<double> &previous_path_y,
+                       vector<double> &next_x_vals, vector<double> &next_y_vals,
                        vector<double> &map_waypoints_s, vector<double> &map_waypoints_x,
                        vector<double> &map_waypoints_y) {
 
@@ -202,7 +203,7 @@ namespace utils {
       way_pt = way_pt.convert_to_frame(curr_car_pt);
     }
 
-    tk::spline spline = create_spline(way_pts);
+    Spline spline = Spline(way_pts);
 
     // Define the actual x,y points we'll be using for the planner.
     // Start by filling the next_x_vals with what's left over from previous path.
@@ -213,8 +214,8 @@ namespace utils {
     }
 
     double target_x = 30.;
-    double target_y = spline(target_x);
-    double target_dist = sqrt(target_x * target_x + target_y * target_y);
+    Point pt = spline.interpolate(target_x);
+    double target_dist = sqrt(pt.x * pt.x + pt.y * pt.y);
 
     double x_add_on = 0;
 
@@ -231,7 +232,7 @@ namespace utils {
       double N = (target_dist / (.02 * velocity));
 
       double x_point = ((target_x / N) + x_add_on);
-      Point next_pt = Point(x_point, spline(x_point))
+      Point next_pt = spline.interpolate(x_point)
           .convert_from_frame(car_pt);
 
       x_add_on = x_point;
@@ -242,7 +243,7 @@ namespace utils {
   }
 
   double from_mph(double mph) {
-    return mph * (float) 0.44704;
+    return mph * (double) 0.44704;
   }
 
   double to_mph(double meters_per_s) {
@@ -357,7 +358,7 @@ namespace utils {
     tk::spline spline;
 
     // Set x,y coordinates as anchor points of the spline.
-    spline.set_points(x_pts, y_pts);
+    spline.set_points(x_pts, y_pts, true);
 
     this->spline = spline;
   }
@@ -368,5 +369,34 @@ namespace utils {
     new_pt.y = this->spline(x);
 
     return new_pt;
+  }
+
+  Map::Map(string map_file, double max_s) {
+
+    // The max s value before wrapping around the track back to 0
+    this->max_s = max_s;
+
+    // Waypoint map to read from
+    ifstream in_map_(map_file.c_str(), ifstream::in);
+
+    string line;
+    while (getline(in_map_, line)) {
+      istringstream iss(line);
+      double x;
+      double y;
+      double s;
+      double d_x;
+      double d_y;
+      iss >> x;
+      iss >> y;
+      iss >> s;
+      iss >> d_x;
+      iss >> d_y;
+      this->map_waypoints_x.push_back(x);
+      this->map_waypoints_y.push_back(y);
+      this->map_waypoints_s.push_back(s);
+      this->map_waypoints_dx.push_back(d_x);
+      this->map_waypoints_dy.push_back(d_y);
+    }
   }
 }

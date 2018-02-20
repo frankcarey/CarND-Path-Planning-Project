@@ -21,29 +21,29 @@ public:
 
   };
 
-  float preferred_buffer = 6; // impacts "keep lane" behavior.
+  double preferred_buffer = 6; // impacts "keep lane" behavior.
 
-  float s;
+  double s;
 
-  float d;
+  double d;
 
-  float v;
+  double v;
 
-  float a;
+  double a;
 
-  float yaw;
+  double yaw;
 
-  float target_speed;
+  double target_speed;
 
   int target_lane;
 
-  float target_s;
+  double target_s;
 
   int lanes_available;
 
-  float max_acceleration;
+  double max_acceleration;
 
-  float max_legal_speed;
+  double max_legal_speed;
 
   string state;
 
@@ -52,15 +52,15 @@ public:
   */
   Vehicle();
 
-  Vehicle(float s, float d, float v, float a=0, float yaw=0, string state="CS");
+  Vehicle(double s, double d, double v, double a=0, double yaw=0, string state="CS");
 
-  vector<Vehicle> choose_next_state(map<int, vector<Vehicle>> predictions, std::function<float(Vehicle, map<int, vector<Vehicle>>, vector<Vehicle>)> calculate_cost);
+  vector<Vehicle> choose_next_state(map<int, vector<Vehicle>> predictions, std::function<double(Vehicle, map<int, vector<Vehicle>>, vector<Vehicle>)> calculate_cost);
 
   vector<string> successor_states();
 
   vector<Vehicle> generate_trajectory(string state, map<int, vector<Vehicle>> predictions);
 
-  vector<float> get_kinematics(map<int, vector<Vehicle>> predictions, int lane);
+  vector<double> get_kinematics(map<int, vector<Vehicle>> predictions, int lane);
 
   vector<Vehicle> constant_speed_trajectory();
 
@@ -72,7 +72,7 @@ public:
 
   void increment(int dt);
 
-  float position_at(int t);
+  double position_at(int t);
 
   bool get_vehicle_behind(map<int, vector<Vehicle>> predictions, int lane, Vehicle & rVehicle);
 
@@ -82,21 +82,21 @@ public:
 
   void realize_next_state(vector<Vehicle> trajectory);
 
-  void configure(vector<float> road_data);
+  void configure(vector<double> road_data);
 
   int get_lane();
 
   bool in_my_lane(Vehicle &other);
 
-  float static lane_to_d(float lane);
+  double static lane_to_d(double lane);
 
-  int static d_to_lane(float d);
+  int static d_to_lane(double d);
 
-  float distance_from_me(Vehicle &other, float time_delta = 0);
+  double distance_from_me(Vehicle &other, double time_delta = 0);
 
-  float accelerate(float factor=0.01);
+  double accelerate(double factor=0.01);
 
-  float decelerate(float factor=0.01);
+  double decelerate(double factor=0.01);
 
   Vehicle clone();
 

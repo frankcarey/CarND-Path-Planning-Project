@@ -62,3 +62,33 @@ TEST(Spline, CreateStraightLine) {
     ASSERT_NEAR(i_pt.y, 0,  0.0000001);
   }
 }
+
+
+TEST(Spline, CreateDiagonalLine) {
+  vector<Point> way_pts;
+  for (int i=0; i < 5; i++) {
+    way_pts.push_back(Point(i, i, 0));
+  }
+  Spline spl = Spline(way_pts);
+
+  for (int i=0; i < 5; i++) {
+    Point i_pt = spl.interpolate(i);
+    EXPECT_NEAR(i_pt.y, i, i * 0.001);
+  }
+}
+
+
+TEST(Spline, CreateCurvedLine) {
+  vector<Point> way_pts;
+  for (int i=0; i < 5; i++) {
+    way_pts.push_back(Point(i, i*i, 0));
+  }
+  Spline spl = Spline(way_pts);
+
+  // Note, the values can be off like 3-5%, especially near the ends of the spline!
+  for (int i=2; i < 10; i++) {
+    double half_i = i / 2.;
+    Point i_pt = spl.interpolate(half_i);
+    EXPECT_NEAR(i_pt.y, half_i*half_i, half_i*half_i * 0.03);
+  }
+}

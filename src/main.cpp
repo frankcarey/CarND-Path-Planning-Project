@@ -22,50 +22,22 @@ using json = nlohmann::json;
 int main() {
   uWS::Hub h;
 
-  // Load up map values for waypoint's x,y,s and d normalized normal vectors
-  vector<double> map_waypoints_x;
-  vector<double> map_waypoints_y;
-  vector<double> map_waypoints_s;
-  vector<double> map_waypoints_dx;
-  vector<double> map_waypoints_dy;
-
   // Waypoint map to read from
-  string map_file_ = "../data/highway_map.csv";
+  string map_file = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
+  utils::Map map =  utils::Map(map_file, max_s);
 
-  ifstream in_map_(map_file_.c_str(), ifstream::in);
-
-  string line;
-  while (getline(in_map_, line)) {
-  	istringstream iss(line);
-  	double x;
-  	double y;
-  	double s;
-  	double d_x;
-  	double d_y;
-  	iss >> x;
-  	iss >> y;
-  	iss >> s;
-  	iss >> d_x;
-  	iss >> d_y;
-  	map_waypoints_x.push_back(x);
-  	map_waypoints_y.push_back(y);
-  	map_waypoints_s.push_back(s);
-  	map_waypoints_dx.push_back(d_x);
-  	map_waypoints_dy.push_back(d_y);
-  }
-
-  const float MAX_LEGAL_VELOCITY = 100.5; // in MPH! TODO this is actually 50.
+  const double MAX_LEGAL_VELOCITY = 100.5; // in MPH! TODO this is actually 50.
 
   // Setup details our vehicle needs.
-  vector<float> road_data{
+  vector<double> road_data{
       0, //target_speed default to zero initially (in mph!)
       3,  //lanes_available
       -1, //target_s (disabled at first because we don't care.)
       1, //target_lane (starting in lane 1);
       8 , //max_acceleration (in meters per second squared) (actual limit is 10)
-      MAX_LEGAL_VELOCITY * (float) 0.44704, // We'll make sure not to exceed this speed. (convert to meters per second)
+      MAX_LEGAL_VELOCITY * (double) 0.44704, // We'll make sure not to exceed this speed. (convert to meters per second)
       8, //max jerk in meters per second. (actual limit is 10)
   };
 
@@ -76,7 +48,7 @@ int main() {
   time_point <system_clock>last_update = system_clock::now();
 
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&car,&last_update, &prev_car](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
+  h.onMessage([&map, &car, &last_update, &prev_car](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -84,8 +56,7 @@ int main() {
     //auto sdata = string(data).substr(0, length);
     //cout << sdata << endl;
     if (length > 2 && data[0] == '4' && data[1] == '2') {
-      pi();
-      auto s = hasData(data);
+      auto s = utils::hasData(data);
 
       if (!s.empty()) {
         auto j = json::parse(s);
@@ -106,13 +77,13 @@ int main() {
           car.s = j[1]["s"];
           car.d = j[1]["d"];
           car.yaw = j[1]["yaw"];
-          car.v = from_mph((float)(j[1]["speed"])); // convert speed to meters per second.
-          car.a = (car.v - prev_car.v) / (float) (time_diff / 1000.);
+          car.v = utils::from_mph((double)(j[1]["speed"])); // convert speed to meters per second.
+          car.a = (car.v - prev_car.v) / (double) (time_diff / 1000.);
 
           cout << "my v: " << car.v << "\n";
           cout << "my a: " << car.a << "\n";
           cout << "my d: " << car.d << "\n";
-          cout << "my jerk: " << (car.a - prev_car.a) / (float) (time_diff / 1000.) << "\n";
+          cout << "my jerk: " << (car.a - prev_car.a) / (double) (time_diff / 1000.) << "\n";
           cout << "my lane: " << car.get_lane() << "\n";
 
           prev_car.v = car.v;
@@ -126,8 +97,8 @@ int main() {
 
 
           // Previous path data given to the Planner
-          vector<float> previous_path_x = j[1]["previous_path_x"];
-          vector<float> previous_path_y = j[1]["previous_path_y"];
+          vector<double> previous_path_x = j[1]["previous_path_x"];
+          vector<double> previous_path_y = j[1]["previous_path_y"];
           // Previous path's end s and d values
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
@@ -144,9 +115,9 @@ int main() {
           auto sensor_fusion = j[1]["sensor_fusion"];
 
           vector<Vehicle> other_vehicles;
-          float velocity;
-          float vx;
-          float vy;
+          double velocity;
+          double vx;
+          double vy;
           for (auto &vehicle_data : sensor_fusion) {
             vx = vehicle_data[3];
             vy = vehicle_data[4];
@@ -155,7 +126,7 @@ int main() {
             other_vehicles.emplace_back(Vehicle{
                 vehicle_data[5], // s
                 vehicle_data[6], // d
-                from_mph(velocity), // v
+                utils::from_mph(velocity), // v
                 //sensor_fusion[i][1], // a (assume zero)
                 //sensor_fusion[i][1], // yaw (assume zero)
                 //sensor_fusion[i][1] // state (assume default)
@@ -172,7 +143,7 @@ int main() {
           // START BEHAVIOR PLANNING
           if (prev_size > 0) {
             // TODO: This is probably going to cause issues where we need to compare the car against other car's current s?
-            car.s = (float) end_path_s;
+            car.s = (double) end_path_s;
           }
 
           bool too_close = false;
@@ -183,7 +154,7 @@ int main() {
           for (auto &other_vehicle : other_vehicles) {
             // check only car is in my lane.
             if (car.in_my_lane(other_vehicle)) {
-              float check_car_s = other_vehicle.s;
+              double check_car_s = other_vehicle.s;
               check_car_s += ((double) prev_size * (time_diff/1000) *
                   other_vehicle.v); //if using previous points, project car's s value out in time.
               // check that the s value is greater than mine and s gap.
@@ -246,8 +217,8 @@ int main() {
             cout << "NO REVERSE!\n";
           }
 
-          vector<float> next_x_vals;
-          vector<float> next_y_vals;
+          vector<double> next_x_vals;
+          vector<double> next_y_vals;
 
           //generate_path_spline(car, previous_path_x, previous_path_y, next_x_vals, next_y_vals);
           generate_spline_path(car.s, car.d, Vehicle::lane_to_d(car.target_lane), car.yaw, car.v, car.a, previous_path_x, previous_path_y,
