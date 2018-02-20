@@ -54,11 +54,6 @@ public:
 
   Vehicle(float s, float d, float v, float a=0, float yaw=0, string state="CS");
 
-  /**
-  * Destructor
-  */
-  virtual ~Vehicle();
-
   vector<Vehicle> choose_next_state(map<int, vector<Vehicle>> predictions, std::function<float(Vehicle, map<int, vector<Vehicle>>, vector<Vehicle>)> calculate_cost);
 
   vector<string> successor_states();
@@ -103,7 +98,7 @@ public:
 
   float decelerate(float factor=0.01);
 
-
+  Vehicle clone();
 
 };
 

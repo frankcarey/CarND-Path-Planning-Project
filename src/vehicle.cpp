@@ -21,9 +21,6 @@ Vehicle::Vehicle(float s, float d, float v, float a, float yaw, string state) {
 
 }
 
-Vehicle::~Vehicle() {}
-
-
 vector<Vehicle> Vehicle::choose_next_state(map<int, vector<Vehicle>> predictions,
                                            std::function<float(Vehicle, map<int, vector<Vehicle>>, vector<Vehicle>)> calculate_cost) {
   /*
@@ -354,6 +351,10 @@ float Vehicle::decelerate(float factor) {
     this->a = new_a;
   }
   return new_a;
+}
+
+Vehicle Vehicle::clone() {
+  return Vehicle(this->s, this->d, this->v, this->a, this->yaw, this->state);
 }
 
 

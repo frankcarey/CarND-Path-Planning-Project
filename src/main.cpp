@@ -56,7 +56,7 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
-  const float MAX_LEGAL_VELOCITY = 100.5; // TODO this is actually 50.
+  const float MAX_LEGAL_VELOCITY = 100.5; // in MPH! TODO this is actually 50.
 
   // Setup details our vehicle needs.
   vector<float> road_data{
@@ -64,18 +64,19 @@ int main() {
       3,  //lanes_available
       -1, //target_s (disabled at first because we don't care.)
       1, //target_lane (starting in lane 1);
-      5 * (float) 0.44704, //max_acceleration (in meters per second squared)
-      MAX_LEGAL_VELOCITY * (float) 0.44704 // We'll make sure not to exceed this speed. (convert to meters per second)
-
+      8 , //max_acceleration (in meters per second squared) (actual limit is 10)
+      MAX_LEGAL_VELOCITY * (float) 0.44704, // We'll make sure not to exceed this speed. (convert to meters per second)
+      8, //max jerk in meters per second. (actual limit is 10)
   };
 
   Vehicle car{0, Vehicle::lane_to_d(1), 0, 0, 0, "KL"};  // start in lane 1
   car.configure(road_data);
+  Vehicle prev_car = car.clone();
 
   time_point <system_clock>last_update = system_clock::now();
 
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&car,&last_update](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
+  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy,&car,&last_update, &prev_car](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -105,12 +106,17 @@ int main() {
           car.s = j[1]["s"];
           car.d = j[1]["d"];
           car.yaw = j[1]["yaw"];
-          car.v = (float)(j[1]["speed"]) * (float) 0.44704; // convert speed to meters per second.
+          car.v = from_mph((float)(j[1]["speed"])); // convert speed to meters per second.
+          car.a = (car.v - prev_car.v) / (float) (time_diff / 1000.);
 
-          cout << "my v:" << car.v << "\n";
-          cout << "my a:" << car.a << "\n";
-          cout << "my d:" << car.d << "\n";
-          cout << "my lane:" << car.get_lane() << "\n";
+          cout << "my v: " << car.v << "\n";
+          cout << "my a: " << car.a << "\n";
+          cout << "my d: " << car.d << "\n";
+          cout << "my jerk: " << (car.a - prev_car.a) / (float) (time_diff / 1000.) << "\n";
+          cout << "my lane: " << car.get_lane() << "\n";
+
+          prev_car.v = car.v;
+          prev_car.a = car.a;
 
           // Quick sanity check to kill the program when this happens.
           if (car.get_lane() < 0 ) {
@@ -149,7 +155,7 @@ int main() {
             other_vehicles.emplace_back(Vehicle{
                 vehicle_data[5], // s
                 vehicle_data[6], // d
-                velocity, // v
+                from_mph(velocity), // v
                 //sensor_fusion[i][1], // a (assume zero)
                 //sensor_fusion[i][1], // yaw (assume zero)
                 //sensor_fusion[i][1] // state (assume default)
@@ -178,7 +184,7 @@ int main() {
             // check only car is in my lane.
             if (car.in_my_lane(other_vehicle)) {
               float check_car_s = other_vehicle.s;
-              check_car_s += ((double) prev_size * .02 *
+              check_car_s += ((double) prev_size * (time_diff/1000) *
                   other_vehicle.v); //if using previous points, project car's s value out in time.
               // check that the s value is greater than mine and s gap.
               //cout << (check_car_s - car.s) << "\n";
@@ -215,7 +221,8 @@ int main() {
           // If we're not too close and going slower than our goal, speed up.
           if (!too_close && (car.v < car.max_legal_speed)) {
             // speed up by about 5 m/s
-            car.accelerate();
+            //car.accelerate();
+            car.a = 1;
             cout << "MOR POWER!!\n";
           } else if (car.v < 0.1) {
             stopped = true;
@@ -223,7 +230,7 @@ int main() {
             car.a = .001;
             cout << "STOPPED\n";
           } else if (too_close || (car.v > car.max_legal_speed)) {
-            car.decelerate();
+            car.a = -1;
             cout << "SLOW YER ROLE!!\n";
           }
 
@@ -233,7 +240,7 @@ int main() {
 
           }
 
-          if (car.v < 20 && car.a < 0) {
+          if (car.v < 5 && car.a < 0) {
             // do not allow reverse!
             car.a = .001;
             cout << "NO REVERSE!\n";
