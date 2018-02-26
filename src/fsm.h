@@ -7,31 +7,35 @@
 
 #include <vector>
 #include "utils.h"
+#include "vehicle.h"
 
 using namespace std;
 using namespace utils;
+using namespace vehicle;
 
 namespace fsm {
   enum STATE {
-    KL = 0, // 'Keep Lane',
-    PLCL = 1, // 'Prepare Lane Change: Left'
-    PLCR = 2, // 'Prepare Lane Change: Right'
-    LCL = 3, // 'Lane Change: Left'
-    LCR = 4, // 'Lane Change: Right'
+    CS = 0, // Constant speed,
+    KL = 1, // 'Keep Lane',
+    PLCL = 2, // 'Prepare Lane Change: Left'
+    PLCR = 3, // 'Prepare Lane Change: Right'
+    LCL = 4, // 'Lane Change: Left'
+    LCR = 5, // 'Lane Change: Right'
   };
 
+  map<STATE, int> LANE_DIRECTION;
 
   class VehicleFSM {
   public:
     STATE state;
-    Map map;
+    Map trackMap;
 
-    VehicleFSM(STATE state, Map &map);
+    VehicleFSM(STATE state, Map &trackMap);
 
     VehicleFSM();
 
     vector<STATE> successor_states(int lane);
-    double calculate_cost();
+    double calculate_cost(vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions);
   };
 
 

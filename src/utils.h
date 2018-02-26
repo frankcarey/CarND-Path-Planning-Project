@@ -17,7 +17,7 @@ using namespace std;
 namespace utils {
 
 
-  class Point {
+  class Position {
 
   public:
 
@@ -30,21 +30,21 @@ namespace utils {
     //yaw in radians!
     double yaw;
 
-    Point();
+    Position();
 
-    Point(double x, double y);
+    Position(double x, double y);
 
-    Point(double x, double y, double yaw);
+    Position(double x, double y, double yaw);
 
-    Point convert_to_frame(Point ref_pt);
+    Position convert_to_frame(Position ref_pt);
 
-    Point convert_from_frame(Point ref_pt);
+    Position convert_from_frame(Position ref_pt);
 
-    Point clone();
+    Position clone();
 
   };
 
-  class Frenet {
+  class FrenetPos {
   public:
 
     // s in meters
@@ -53,17 +53,17 @@ namespace utils {
     // d in meters
     double d;
 
-    Frenet();
+    FrenetPos();
 
-    Frenet(double s, double d);
+    FrenetPos(double s, double d);
 
   };
 
   class Spline {
   public:
 
-    explicit Spline(vector<Point> way_pts);
-    Point interpolate(double x);
+    explicit Spline(vector<Position> way_pts);
+    Position interpolate(double x);
 
   private:
 
@@ -85,15 +85,22 @@ namespace utils {
     vector<double> waypoints_dx;
     vector<double> waypoints_dy;
 
-    int ClosestWaypoint(Point pt);
+    int ClosestWaypoint(Position pt);
 
-    int NextWaypoint(Point pt);
+    int NextWaypoint(Position pt);
 
-    Frenet getFrenet(Point pt);
+    FrenetPos getFrenet(Position pt);
 
-    Point getXY(Frenet frenet);
+    Position getXY(FrenetPos frenet);
+
+    int getFrenetLane(FrenetPos frenet);
+
+    int getXYLane(Position position);
+
+    Position position_at(Position position, double timedelta);
 
     bool is_lane_available(int lane);
+
 
   };
 
@@ -107,7 +114,7 @@ namespace utils {
 
   double distance(double x1, double y1, double x2, double y2);
 
-  vector<Point> generate_spline_path(double car, double target_d, double yaw, double velocity,
+  vector<Position> generate_spline_path(double car, double target_d, double yaw, double velocity,
                        double acceleration,
                        vector<double> &previous_path_x, vector<double> &previous_path_y,
                        vector<double> &next_x_vals, vector<double> &next_y_vals,

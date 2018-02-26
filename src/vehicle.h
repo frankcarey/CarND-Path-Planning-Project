@@ -14,39 +14,42 @@ using namespace utils;
 
 namespace vehicle {
   class Vehicle {
+  private:
+    Position _position;
+    double _a;
+    double _v;
+    double _yaw_delta;
+    double _dx;
+    double _dy;
+
   public:
 
     Vehicle();
 
-    explicit Vehicle(Point pt);
-
-    double x();
-
-    double y();
-
-    double yaw();
+    explicit Vehicle(Position position);
 
     double v();
+    void v(double v);
+    double a();
+    void a(double a);
+    double x();
+    void x(double x);
+    double y();
+    void y(double y);
+    double yaw();
+    void yaw(double yaw);
+    double yaw_delta();
+    void yaw_delta(double yaw_delta);
+    Position position();
+    void position(Position pos);
 
-
-    Point location;
-
-    double dx;
-    double dy;
-
+    Vehicle clone();
 
   };
 
 
   class VehicleController {
   public:
-
-    VehicleController(Vehicle &vehicle, fsm::VehicleFSM fsm, Map &map);
-
-    map<string, int> lane_direction = {{"PLCL", 1},
-                                       {"LCL",  1},
-                                       {"LCR",  -1},
-                                       {"PLCR", -1}};
 
     struct collider {
 
@@ -59,7 +62,7 @@ namespace vehicle {
 
     Vehicle vehicle;
 
-    Map map;
+    Map trackMap;
 
     fsm::VehicleFSM fsm;
 
@@ -85,35 +88,31 @@ namespace vehicle {
     * Constructor
     */
 
-    VehicleController(Vehicle v, fsm::VehicleFSM fsm, Map &map);
+    VehicleController(Vehicle &v, fsm::VehicleFSM &fsm, Map &trackMap);
 
-    vector<VehicleController> choose_next_state(std::map<int, vector<VehicleController>> predictions,
-                                                std::function<double(VehicleController,
-                                                                     std::map<int, vector<VehicleController>>,
-                                                                     vector<VehicleController>)> calculate_cost);
+    vector<Vehicle> choose_next_state(map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    vector<string> successor_states();
+    vector<Vehicle> generate_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    vector<VehicleController> generate_trajectory(string state, map<int, vector<VehicleController>> predictions);
+    Vehicle get_lane_kinematic(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    vector<double> get_kinematics(map<int, vector<VehicleController>> predictions, int lane);
+    int get_vehicle_behind(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    vector<VehicleController> constant_speed_trajectory();
+    int get_vehicle_ahead(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    vector<VehicleController> keep_lane_trajectory(map<int, vector<VehicleController>> predictions);
+    vector<Vehicle> constant_speed_trajectory(map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    vector<VehicleController> lane_change_trajectory(string state, map<int, vector<VehicleController>> predictions);
+    vector<Vehicle> keep_lane_trajectory(map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    vector<VehicleController>
-    prep_lane_change_trajectory(string state, map<int, vector<VehicleController>> predictions);
+    vector<Vehicle> lane_change_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
+
+    vector<Vehicle> prep_lane_change_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     void increment(int dt);
 
-    double position_at(int t);
+    Position position_at(int t);
 
-    bool get_vehicle_behind(map<int, vector<VehicleController>> predictions, int lane, VehicleController &rVehicle);
 
-    bool get_vehicle_ahead(map<int, vector<VehicleController>> predictions, int lane, VehicleController &rVehicle);
 
     vector<VehicleController> generate_predictions(int horizon = 2);
 
@@ -134,8 +133,6 @@ namespace vehicle {
     double accelerate(double factor = 0.01);
 
     double decelerate(double factor = 0.01);
-
-    VehicleController clone();
 
   };
 }

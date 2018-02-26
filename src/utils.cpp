@@ -30,20 +30,20 @@ namespace utils {
     return "";
   }
 
-  vector<Point> pt_from_xy_list(XYList l) {
+  vector<Position> pt_from_xy_list(XYList l) {
     assert(!l.x_list.empty());
     assert(l.x_list.size() == l.y_list.size());
 
-    vector<Point> points;
+    vector<Position> points;
 
     for (int i = 0; i < l.x_list.size(); i++) {
-      Point pt = Point(l.x_list[i], l.y_list[i]);
+      Position pt = Position(l.x_list[i], l.y_list[i]);
       points.push_back(pt);
     }
     return points;
   }
 
-  XYList xy_from_pt_list(vector<Point> pts) {
+  XYList xy_from_pt_list(vector<Position> pts) {
     assert(!pts.empty());
 
     vector<double> x_list;
@@ -79,7 +79,7 @@ namespace utils {
     return deg;
   }
 
-  tk::spline create_spline(vector<Point> way_pts) {
+  tk::spline create_spline(vector<Position> way_pts) {
 
     vector<double> x_pts;
     vector<double> y_pts;
@@ -99,9 +99,9 @@ namespace utils {
 
   }
 
-  Point Point::convert_to_frame(Point ref_pt) {
+  Position Position::convert_to_frame(Position ref_pt) {
 
-    Point new_pt = Point();
+    Position new_pt = Position();
 
     // Shirt the car reference angle to 0 degrees.
     double shift_x = this->x - ref_pt.x;
@@ -115,9 +115,9 @@ namespace utils {
 
   }
 
-  Point Point::convert_from_frame(Point ref_pt) {
+  Position Position::convert_from_frame(Position ref_pt) {
 // Rotate back to map coordinates.
-    Point new_pt = Point();
+    Position new_pt = Position();
 
     new_pt.x = (ref_pt.x * cos(this->yaw) - ref_pt.y * sin(this->yaw));
     new_pt.y = (ref_pt.x * sin(this->yaw) + ref_pt.y * cos(this->yaw));
@@ -129,19 +129,19 @@ namespace utils {
     return new_pt;
   }
 
-  Point::Point() {
+  Position::Position() {
     this->x = 0;
     this->y = 0;
     this->yaw = 0;
   }
 
-  Point::Point(double x, double y) {
+  Position::Position(double x, double y) {
     this->x = x;
     this->y = y;
     this->yaw = 0;
   }
 
-  Point::Point(double x, double y, double yaw) {
+  Position::Position(double x, double y, double yaw) {
     this->x = x;
     this->y = y;
     if (yaw < 0) {
@@ -153,13 +153,13 @@ namespace utils {
     this->yaw = yaw;
   }
 
-  Point Point::clone() {
+  Position Position::clone() {
     return {this->x, this->y, this->yaw};
 
   }
 
 
-  Spline::Spline(vector<Point> way_pts) {
+  Spline::Spline(vector<Position> way_pts) {
 
     vector<double> x_pts;
     vector<double> y_pts;
@@ -178,8 +178,8 @@ namespace utils {
     this->spline = spline;
   }
 
-  Point Spline::interpolate(double x) {
-    Point new_pt = Point();
+  Position Spline::interpolate(double x) {
+    Position new_pt = Position();
     new_pt.x = x;
     new_pt.y = this->spline(x);
 
@@ -221,7 +221,7 @@ namespace utils {
     return (lane >=0) && (lane < this->n_lanes);
   }
 
-  int Map::ClosestWaypoint(Point pt) {
+  int Map::ClosestWaypoint(Position pt) {
 
     double closestLen = 100000; //large number
     int closestWaypoint = 0;
@@ -238,7 +238,7 @@ namespace utils {
     return closestWaypoint;
   }
 
-  int Map::NextWaypoint(Point pt) {
+  int Map::NextWaypoint(Position pt) {
 
     int closestWaypoint = ClosestWaypoint(pt);
 
@@ -260,8 +260,8 @@ namespace utils {
     return closestWaypoint;
   }
 
-  // Transform from Cartesian x,y coordinates to Frenet s,d coordinates
-  Frenet Map::getFrenet(Point pt) {
+  // Transform from Cartesian x,y coordinates to FrenetPos s,d coordinates
+  FrenetPos Map::getFrenet(Position pt) {
     int next_wp = this->NextWaypoint(pt);
 
     int prev_wp;
@@ -305,8 +305,8 @@ namespace utils {
 
   }
 
-// Transform from Frenet s,d coordinates to Cartesian x,y
-  Point Map::getXY(Frenet frenet) {
+// Transform from FrenetPos s,d coordinates to Cartesian x,y
+  Position Map::getXY(FrenetPos frenet) {
 
     int prev_wp = -1;
 
@@ -332,7 +332,23 @@ namespace utils {
 
   }
 
-  Frenet::Frenet() : s(0), d(0) {}
-  Frenet::Frenet(double s, double d) : s(s), d(d) {}
+  int Map::getXYLane(Position pos) {
+    return this->getFrenetLane(this->getFrenet(pos));
+  }
+
+  int Map::getFrenetLane(FrenetPos frenet) {
+    // assumes 0 is the left most lane.
+    return (int) round(frenet.d / 4 - 0.5);
+  }
+
+
+  Position Map::position_at(Position pos, double timedelta) {
+    FrenetPos fpos = this->getFrenet(pos);
+    // TODO: Convert to new position.
+    return this->getXY(fpos);
+  }
+
+  FrenetPos::FrenetPos() : s(0), d(0) {}
+  FrenetPos::FrenetPos(double s, double d) : s(s), d(d) {}
 
 }

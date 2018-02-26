@@ -1,19 +1,27 @@
 //
 // Created by Carey, Frank, Sr. on 2/19/18.
 //
-
 #include "fsm.h"
-#include "utils.h"
 #include <vector>
+
+#include "utils.h"
+#include "vehicle.h"
 
 using namespace std;
 using namespace utils;
+using namespace vehicle;
 
 namespace fsm {
 
-  VehicleFSM::VehicleFSM(STATE state, Map &map) {
+  map<STATE, int> lane_direction STATE::
+
+  VehicleFSM::VehicleFSM() {
+    this->state = STATE::KL;
+  };
+
+  VehicleFSM::VehicleFSM(STATE state, Map &trackMap) {
     this->state = state;
-    this->map = map;
+    this->trackMap = trackMap;
   }
 
   vector<STATE> VehicleFSM::successor_states(int lane) {
@@ -28,12 +36,12 @@ namespace fsm {
       states.emplace_back(PLCL);
       states.emplace_back(PLCR);
     } else if (state == PLCL) {
-      if (this->map.is_lane_available(lane-1)) {
+      if (this->trackMap.is_lane_available(lane-1)) {
         states.emplace_back(PLCL);
         states.emplace_back(LCL);
       }
     } else if (state == PLCR) {
-      if (this->map.is_lane_available(lane+1)) {
+      if (this->trackMap.is_lane_available(lane+1)) {
         states.emplace_back(PLCR);
         states.emplace_back(LCR);
       }
@@ -47,7 +55,7 @@ namespace fsm {
 
   void add_cost_fn(){} //TODO: Add ability to add cost functions to the FSM? (or is this overthinking it?)
 
-  double VehicleFSM::calculate_cost() {
+  double VehicleFSM::calculate_cost(vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions) {
     /*
     Sum weighted cost functions to get total cost for trajectory.
     */
@@ -67,6 +75,4 @@ namespace fsm {
     return cost;
 
   }
-
-  VehicleFSM::VehicleFSM() {}
 }
