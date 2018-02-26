@@ -12,6 +12,8 @@
 
 using namespace std;
 using namespace std::chrono;
+using namespace vehicle;
+using namespace fsm;
 
 // for convenience
 using json = nlohmann::json;
@@ -26,28 +28,21 @@ int main() {
   double max_s = 6945.554;
   const double MAX_LEGAL_MPH = 100.5; // in MPH! TODO this is actually 50.
   const int NUMBER_OF_LANES = 3;
-  utils::Map map =  utils::Map(map_file, max_s, MAX_LEGAL_MPH, NUMBER_OF_LANES);
+  const double MAX_ACCELERATION = 8; // in meters per second.
 
 
-  // Setup details our vehicle needs.
-  vector<double> road_data{
-      0, //target_speed default to zero initially (in mph!)
-      3,  //lanes_available
-      -1, //target_s (disabled at first because we don't care.)
-      1, //target_lane (starting in lane 1);
-      8 , //max_acceleration (in meters per second squared) (actual limit is 10)
-      MAX_LEGAL_MPH * (double) 0.44704, // We'll make sure not to exceed this speed. (convert to meters per second)
-      8, //max jerk in meters per second. (actual limit is 10)
-  };
 
-  Vehicle initial_location {0, VehicleController::lane_to_d(1), 0, 0, 0, "KL"};  // start in lane 1
-  car.configure(road_data);
-  VehicleController prev_car = car.clone();
-
-  time_point <system_clock>last_update = system_clock::now();
+  utils::Map trackMap =  utils::Map(map_file, max_s, MAX_LEGAL_MPH, NUMBER_OF_LANES);
 
 
-  h.onMessage([&map, &car, &last_update, &prev_car](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
+  Vehicle car{};  // start in lane 1
+  VehicleFSM fsm{};
+
+  //car.configure(road_data);
+  VehicleController carCtl = VehicleController(car, fsm, trackMap);
+  carCtl.max_acceleration = MAX_ACCELERATION;
+
+  h.onMessage([&carCtl](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -63,41 +58,13 @@ int main() {
         string event = j[0].get<string>();
 
         if (event == "telemetry") {
-          time_point <system_clock>now = system_clock::now();
-          time_point <system_clock>last = last_update;
-          long long int time_diff = duration_cast<std::chrono::milliseconds>(now - last).count();
-          cout << time_diff<< "ms \n";
-          last_update = now;
+
           // j[1] is the data JSON object
 
           // Main car's localization Data
-          //car.x = j[1]["x"];
-          //car.y = j[1]["y"];
-          car.s = j[1]["s"];
-          car.d = j[1]["d"];
-          car.yaw = j[1]["yaw"];
-          car.v = utils::from_mph((double)(j[1]["speed"])); // convert speed to meters per second.
-          car.a = (car.v - prev_car.v) / (double) (time_diff / 1000.);
-
-          cout << "my v: " << car.v << "\n";
-          cout << "my a: " << car.a << "\n";
-          cout << "my d: " << car.d << "\n";
-          cout << "my jerk: " << (car.a - prev_car.a) / (double) (time_diff / 1000.) << "\n";
-          cout << "my lane: " << car.get_lane() << "\n";
-
-          prev_car.v = car.v;
-          prev_car.a = car.a;
-
-          // Quick sanity check to kill the program when this happens.
-          if (car.get_lane() < 0 ) {
-            cout << "you've killed us!!" << "\n";
-            exit(1);
-          }
+          carCtl.update(j[1]["x"], j[1]["y"], j[1]["yaw"], j[1]["speed"], j[1]["previous_path_x"].size());
 
 
-          // Previous path data given to the Planner
-          vector<double> previous_path_x = j[1]["previous_path_x"];
-          vector<double> previous_path_y = j[1]["previous_path_y"];
           // Previous path's end s and d values
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
@@ -112,117 +79,37 @@ int main() {
           // * [5] car's s position in frenet coordinates
           // * [6] car's d position in frenet coordinates.
           auto sensor_fusion = j[1]["sensor_fusion"];
-
-          vector<VehicleController> other_vehicles;
-          double velocity;
-          double vx;
-          double vy;
+          vector<Vehicle> other_vehicles;
           for (auto &vehicle_data : sensor_fusion) {
-            vx = vehicle_data[3];
-            vy = vehicle_data[4];
-            velocity = sqrt(vx * vx + vy * vy);
+            Vehicle new_vehicle{vehicle_data[0], Position{vehicle_data[1], vehicle_data[2]}};
+            new_vehicle.v(utils::distance(vehicle_data[3], vehicle_data[4]));
 
-            other_vehicles.emplace_back(VehicleController{
-                vehicle_data[5], // s
-                vehicle_data[6], // d
-                utils::from_mph(velocity), // v
-                //sensor_fusion[i][1], // a (assume zero)
-                //sensor_fusion[i][1], // yaw (assume zero)
-                //sensor_fusion[i][1] // state (assume default)
-
-            });
+            other_vehicles.emplace_back(new_vehicle);
           }
 
-          json msgJson;
-
-          // The previous path that the car was driving.
-          auto prev_size = previous_path_x.size();
-
-
-          // START BEHAVIOR PLANNING
-          if (prev_size > 0) {
-            // TODO: This is probably going to cause issues where we need to compare the car against other car's current s?
-            car.s = (double) end_path_s;
+          // Generate the predictions for the other cars.
+          map<int, vector<Vehicle>> other_vehicle_predictions;
+          for (Vehicle &other_vehicle: other_vehicles) {
+            other_vehicle_predictions[other_vehicle.id()] = carCtl.generate_predictions(3, other_vehicle);
           }
 
-          bool too_close = false;
-          bool stopped = false;
+          // Choose the next state based on the trajectories of the other cars.
+          std::pair<fsm::STATE, vector<Vehicle>> best_state_path = carCtl.choose_next_state(other_vehicle_predictions);
 
-          //cout << other_vehicles.size() << " Cars I can see\n";
-          // find the ref_v to use by checking the other cars in our lane from sensor fusion.
-          for (auto &other_vehicle : other_vehicles) {
-            // check only car is in my lane.
-            if (car.in_my_lane(other_vehicle)) {
-              double check_car_s = other_vehicle.s;
-              check_car_s += ((double) prev_size * (time_diff/1000) *
-                  other_vehicle.v); //if using previous points, project car's s value out in time.
-              // check that the s value is greater than mine and s gap.
-              //cout << (check_car_s - car.s) << "\n";
-              if ((check_car_s > car.s) && ((check_car_s - car.s) < 30)) {
-                cout << (check_car_s - car.s) << ": Close car!!\n";
-                too_close = true;
-              }
-            } else {
-              //cout << i << " : " << other_vehicles[i].s << other_vehicles[i].d << "\n";
-            }
-          }
-//
-//          if (too_close) {
-//            cout << "TOO CLOSE\n";
-//            if (car.v > .224) {
-//              // slow down by about 5 m/s
-//              // TODO: Video says this can be more efficient if placed when creating the actual points instead of the same
-//              // value for all the points.
-//              // TODO: This value also seems to high on my machine (car speeds up and slows down more quickly than in the video.
-//              car.v -= .224;
-//              //                  if (car.get_lane() > 0 ) {
-//              //                    // TODO: This is simply making a lane change 30 meters ahead (spline lib and 30M waypoints make it pretty smooth.
-//              //                    // TODO: Also we should check to make sure if there are any cars in that lane that are too near to make the change safely.
-//              //                    // TODO: We should consider lanes to the left and right, not just hug the left lane.
-//              //                    // TODO: Predict where cars will be in the future and set a cost function for what the optimal state for our car will be.
-//              //                    // note: simulator operates at 50 samples per second.
-//              //                    car.d = VehicleController::lane_to_d(0);
-//              //                  }
-//            } else {
-//              cout << "Stuck in traffic \n";
-//            }
-//          }
+          carCtl.fsm.state = best_state_path.first;
 
-          // If we're not too close and going slower than our goal, speed up.
-          if (!too_close && (car.v < car.max_legal_speed)) {
-            // speed up by about 5 m/s
-            //car.accelerate();
-            car.a = 1;
-            cout << "MOR POWER!!\n";
-          } else if (car.v < 0.1) {
-            stopped = true;
-            car.v = 1;
-            car.a = .001;
-            cout << "STOPPED\n";
-          } else if (too_close || (car.v > car.max_legal_speed)) {
-            car.a = -1;
-            cout << "SLOW YER ROLE!!\n";
-          }
+          carCtl.extend_trajectory(best_state_path.second);
 
-          if (too_close) {
-            // Switch lanes.
-            cout << "TOO CLOSE!!\n";
-
-          }
-
-          if (car.v < 5 && car.a < 0) {
-            // do not allow reverse!
-            car.a = .001;
-            cout << "NO REVERSE!\n";
-          }
 
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
-          //generate_path_spline(car, previous_path_x, previous_path_y, next_x_vals, next_y_vals);
-          generate_spline_path(car.s, car.d, VehicleController::lane_to_d(car.target_lane), car.yaw, car.v, car.a, previous_path_x, previous_path_y,
-            next_x_vals, next_y_vals, map.waypoints_s, map.waypoints_x, map.waypoints_y);
+          for (Vehicle &point: carCtl.trajectory) {
+            next_x_vals.emplace_back(point.x());
+            next_y_vals.emplace_back(point.y());
+          }
 
+          json msgJson;
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 

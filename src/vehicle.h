@@ -5,42 +5,70 @@
 #include <random>
 #include <vector>
 #include <map>
+#include <deque>
 #include <string>
+#include <chrono>
+
 #include "utils.h"
 #include "fsm.h"
 
 using namespace std;
 using namespace utils;
+using namespace std::chrono;
 
 namespace vehicle {
+
+
   class Vehicle {
+
   private:
+    int _id;
     Position _position;
     double _a;
     double _v;
     double _yaw_delta;
-    double _dx;
-    double _dy;
+    time_point<system_clock> _time;
 
   public:
 
     Vehicle();
 
-    explicit Vehicle(Position position);
+    explicit Vehicle(int id, Position position);
+
+    int id();
+
+    void id(int id);
+
+    time_point<system_clock> time();
+
+    void time(time_point<system_clock> time);
 
     double v();
+
     void v(double v);
+
     double a();
+
     void a(double a);
+
     double x();
+
     void x(double x);
+
     double y();
+
     void y(double y);
+
     double yaw();
+
     void yaw(double yaw);
+
     double yaw_delta();
+
     void yaw_delta(double yaw_delta);
+
     Position position();
+
     void position(Position pos);
 
     Vehicle clone();
@@ -62,27 +90,19 @@ namespace vehicle {
 
     Vehicle vehicle;
 
+    Vehicle last_vehicle;
+
     Map trackMap;
 
-    fsm::VehicleFSM fsm;
-
-    double a;
-
-    double yaw;
-
-    double target_speed;
-
-    int target_lane;
-
-    double target_s;
-
-    int lanes_available;
+    fsm::VehicleFSM &fsm;
 
     double max_acceleration;
 
-    double max_legal_speed;
+    time_point<system_clock> last_update_time;
 
-    string state;
+    double last_update_time_delta;
+
+    std::deque<Vehicle> trajectory;
 
     /**
     * Constructor
@@ -90,15 +110,17 @@ namespace vehicle {
 
     VehicleController(Vehicle &v, fsm::VehicleFSM &fsm, Map &trackMap);
 
-    vector<Vehicle> choose_next_state(map<int, vector<Vehicle>> &other_vehicle_predictions);
+    std::pair<fsm::STATE, vector<Vehicle>> choose_next_state(map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     vector<Vehicle> generate_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    Vehicle get_lane_kinematic(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
+    Vehicle get_lane_kinematic(int lane, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     int get_vehicle_behind(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     int get_vehicle_ahead(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
+
+    bool lane_opening_exists(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     vector<Vehicle> constant_speed_trajectory(map<int, vector<Vehicle>> &other_vehicle_predictions);
 
@@ -108,32 +130,23 @@ namespace vehicle {
 
     vector<Vehicle> prep_lane_change_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    void increment(int dt);
+    Vehicle predict_next(Vehicle &car, double timedelta);
 
-    Position position_at(int t);
-
-
-
-    vector<VehicleController> generate_predictions(int horizon = 2);
-
-    void realize_next_state(vector<VehicleController> trajectory);
-
-    void configure(vector<double> road_data);
+    vector<Vehicle> generate_predictions(int n_steps, Vehicle other_car);
 
     int get_lane();
 
-    bool in_my_lane(VehicleController &other);
+    double time_delta();
 
-    double static lane_to_d(double lane);
+    void update(double x, double y, double yaw, double speed_mph, int prev_trajectory_size);
 
-    int static d_to_lane(double d);
+    void trim_prev_trajectory(int prev_size);
 
-    double distance_from_me(VehicleController &other, double time_delta = 0);
+    void extend_trajectory(vector<Vehicle> &path);
 
-    double accelerate(double factor = 0.01);
-
-    double decelerate(double factor = 0.01);
+    double calculate_cost(vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions);
 
   };
 }
+
 #endif // VEHICLE_H

@@ -11,6 +11,11 @@ namespace utils {
 
   double rad2deg(double x) { return x * 180 / pi(); }
 
+
+  double distance(double x, double y) {
+    return sqrt(x*x + y*y);
+  }
+
   double distance(double x1, double y1, double x2, double y2) {
     return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
   }
@@ -217,6 +222,11 @@ namespace utils {
     }
   }
 
+  double Map::speed_limit() {
+    // Convert miles per hour to meters per second.
+    return utils::from_mph(this->speed_limit_mph);
+  }
+
   bool Map::is_lane_available(int lane) {
     return (lane >=0) && (lane < this->n_lanes);
   }
@@ -226,9 +236,9 @@ namespace utils {
     double closestLen = 100000; //large number
     int closestWaypoint = 0;
 
-    for (int i = 0; i < waypoints_x.size(); i++) {
-      double map_x = waypoints_x[i];
-      double map_y = waypoints_x[i];
+    for (int i = 0; i < this->waypoints_x.size(); i++) {
+      double map_x = this->waypoints_x[i];
+      double map_y = this->waypoints_x[i];
       double dist = utils::distance(pt.x, pt.y, map_x, map_y);
       if (dist < closestLen) {
         closestLen = dist;
@@ -242,8 +252,8 @@ namespace utils {
 
     int closestWaypoint = ClosestWaypoint(pt);
 
-    double waypt_x = waypoints_x[closestWaypoint];
-    double waypt_y = waypoints_y[closestWaypoint];
+    double waypt_x = this->waypoints_x[closestWaypoint];
+    double waypt_y = this->waypoints_y[closestWaypoint];
 
     double heading = atan2((waypt_y - pt.y), (waypt_x - pt.x));
 
@@ -341,7 +351,6 @@ namespace utils {
     return (int) round(frenet.d / 4 - 0.5);
   }
 
-
   Position Map::position_at(Position pos, double timedelta) {
     FrenetPos fpos = this->getFrenet(pos);
     // TODO: Convert to new position.
@@ -350,5 +359,6 @@ namespace utils {
 
   FrenetPos::FrenetPos() : s(0), d(0) {}
   FrenetPos::FrenetPos(double s, double d) : s(s), d(d) {}
+
 
 }

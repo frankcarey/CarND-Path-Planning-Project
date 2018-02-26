@@ -6,12 +6,11 @@
 #define PATH_PLANNING_FSM_H
 
 #include <vector>
+#include <map>
 #include "utils.h"
-#include "vehicle.h"
 
 using namespace std;
 using namespace utils;
-using namespace vehicle;
 
 namespace fsm {
   enum STATE {
@@ -23,7 +22,12 @@ namespace fsm {
     LCR = 5, // 'Lane Change: Right'
   };
 
-  map<STATE, int> LANE_DIRECTION;
+  const map<STATE, int> LANE_DIRECTION = {
+      {STATE::PLCL, 1},
+      {STATE::LCL,  1},
+      {STATE::LCR,  -1},
+      {STATE::PLCR, -1}
+  };
 
   class VehicleFSM {
   public:
@@ -35,7 +39,6 @@ namespace fsm {
     VehicleFSM();
 
     vector<STATE> successor_states(int lane);
-    double calculate_cost(vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions);
   };
 
 

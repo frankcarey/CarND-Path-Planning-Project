@@ -5,23 +5,18 @@
 #include <vector>
 
 #include "utils.h"
-#include "vehicle.h"
 
 using namespace std;
 using namespace utils;
-using namespace vehicle;
 
 namespace fsm {
-
-  map<STATE, int> lane_direction STATE::
 
   VehicleFSM::VehicleFSM() {
     this->state = STATE::KL;
   };
 
-  VehicleFSM::VehicleFSM(STATE state, Map &trackMap) {
+  VehicleFSM::VehicleFSM(STATE state, Map &trackMap): trackMap(trackMap) {
     this->state = state;
-    this->trackMap = trackMap;
   }
 
   vector<STATE> VehicleFSM::successor_states(int lane) {
@@ -53,26 +48,7 @@ namespace fsm {
   const double REACH_GOAL = pow(10, 6);
   const double EFFICIENCY = pow(10, 5);
 
-  void add_cost_fn(){} //TODO: Add ability to add cost functions to the FSM? (or is this overthinking it?)
+  void add_cost_fn(){
 
-  double VehicleFSM::calculate_cost(vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions) {
-    /*
-    Sum weighted cost functions to get total cost for trajectory.
-    */
-    double cost = 0.0;
-
-//    //Add additional cost functions here.
-//    vector<function<double(const VehicleController &, const vector<VehicleController> &,
-//                           const map<int, vector<VehicleController>> &, map<string, double> &)>> cf_list = {
-//        goal_distance_cost, inefficiency_cost};
-//    vector<double> weight_list = {REACH_GOAL, EFFICIENCY};
-//
-//    for (int i = 0; i < cf_list.size(); i++) {
-//      double new_cost = weight_list[i] * cf_list[i](vehicle, trajectory, predictions, trajectory_data);
-//      cost += new_cost;
-//    }
-
-    return cost;
-
-  }
+  } //TODO: Add ability to add cost functions to the FSM? (or is this overthinking it?)
 }

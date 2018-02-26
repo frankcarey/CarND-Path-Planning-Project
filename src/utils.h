@@ -72,12 +72,13 @@ namespace utils {
   };
 
   class Map {
+
   public:
     Map()=default;
     explicit Map(string map_file, double max_s, double speed_limit_mph, double n_lanes);
 
     double max_s;
-    double speed_limit_mph;
+    double speed_limit_mph; // in miles per hour.
     double n_lanes;
     vector<double> waypoints_x;
     vector<double> waypoints_y;
@@ -97,9 +98,12 @@ namespace utils {
 
     int getXYLane(Position position);
 
-    Position position_at(Position position, double timedelta);
-
     bool is_lane_available(int lane);
+
+    double speed_limit(); // in meters per second.
+
+    Position position_at(Position pos, double timedelta);
+
 
 
   };
@@ -112,6 +116,7 @@ namespace utils {
 
   string hasData(string s);
 
+  double distance(double x, double y);
   double distance(double x1, double y1, double x2, double y2);
 
   vector<Position> generate_spline_path(double car, double target_d, double yaw, double velocity,
@@ -133,6 +138,7 @@ namespace utils {
     vector<double> x_list ;
     vector<double> y_list ;
   };
+
 }
 
 #endif //UTILS_H
