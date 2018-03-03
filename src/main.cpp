@@ -65,19 +65,19 @@ int main() {
 
           json msgJson;
 
-          cout << j.dump() << " : JSON\n";
+          //cout << j.dump() << " : JSON\n";
 
           double x = j[1]["x"];
           double y = j[1]["y"];
-          double yaw = j[1]["yaw"];
-          double speed = j[1]["speed"];
+          double yaw_radians = utils::deg2rad(j[1]["yaw"]);
+          double speed_mph = j[1]["speed"];
           double s_ = j[1]["s"];
           double d = j[1]["d"];
 
 
           // j[1] is the data JSON object
           // Main car's localization Data
-          carCtl.update(j[1]["x"], j[1]["y"], j[1]["yaw"], j[1]["speed"], j[1]["previous_path_x"].size());
+          carCtl.update(x, y, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
 
           // Just return so we get a previous state.
           if(!initialized) {

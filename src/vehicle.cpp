@@ -21,11 +21,12 @@ namespace vehicle {
   Vehicle::Vehicle() {
     this->_v =0;
     this->_a =0;
-    this->_yaw_delta =0;
+    this->_yaw_delta = 0;
     this->_time = system_clock::now();
   };
 
-  Vehicle::Vehicle(int id, Position pos) {
+  //Note: The second part is the constuctor call in C++11.
+  Vehicle::Vehicle(int id, Position pos) : Vehicle() {
     this->_id = id;
     this->_position = pos;
   }
@@ -271,10 +272,16 @@ namespace vehicle {
     car_frenet.s = car_frenet.s + (this->vehicle.v() * timedelta) + (0.5 * new_a * timedelta * timedelta);
 
     // Create the kinematic as a new Vehicle;
-    Vehicle lane_kinematic = Vehicle(this->vehicle.id(), this->trackMap->getXY(car_frenet));
+    Position new_pos = this->trackMap->getXY(car_frenet);
+    int vid = this->vehicle.id();
+    Vehicle lane_kinematic{vid, new_pos};
     lane_kinematic.v(new_v);
     lane_kinematic.a(new_a);
+    lane_kinematic.time(this->vehicle.time());
+
     lane_kinematic.addSeconds(timedelta);
+
+    //cout << "\nTEST : " << lane_kinematic.id();
 
     return lane_kinematic;
 
@@ -443,7 +450,7 @@ namespace vehicle {
     vector<Vehicle> predictions;
 
     for (int i = 0; i < n_steps; i++) {
-      Vehicle next = this->predict_next(this->vehicle, timedelta);
+      Vehicle next = this->predict_next(other_car, timedelta);
       predictions.emplace_back(next);
     }
     return predictions;
@@ -462,7 +469,7 @@ namespace vehicle {
     // Create separate splines for the x and y coordinates.
     for(int i=0; i < path.size(); i++){
       FrenetPos frenet = this->trackMap->getFrenet(path[i].position());
-      time_way_pts.emplace_back((double) (path[0].time() - path[i].time()).count());
+      time_way_pts.emplace_back(path[0].secondsDiff(path[i].time()));
       s_way_pts.emplace_back(frenet.s);
       d_way_pts.emplace_back(frenet.d);
       v_way_pts.emplace_back(path[i].v());

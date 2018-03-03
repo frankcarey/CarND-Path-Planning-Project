@@ -140,15 +140,12 @@ namespace utils {
     this->yaw = 0;
   }
 
-  Position::Position(double x, double y) {
+  Position::Position(double x, double y): Position() {
     this->x = x;
     this->y = y;
-    this->yaw = 0;
   }
 
-  Position::Position(double x, double y, double yaw) {
-    this->x = x;
-    this->y = y;
+  Position::Position(double x, double y, double yaw): Position(x, y) {
     if (yaw < 0) {
       throw "Yaw is less than zero";
     }
