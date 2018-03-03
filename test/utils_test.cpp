@@ -18,6 +18,30 @@ TEST(Utils, Conversions)
 
 }
 
+// Simple test, does not use gmock
+TEST(Utils, distance)
+{
+  // Just two elements as x and y.
+  double dist = distance(3, 4);
+  EXPECT_DOUBLE_EQ(dist, 5);
+
+  // All four elements as x1, y1, x2, y2.
+  dist = distance(0, 0, 3, 4);
+  EXPECT_DOUBLE_EQ(dist, 5);
+
+  // Test where the first point isn't zero.
+  dist = distance(1, 1, 4, 5);
+  EXPECT_DOUBLE_EQ(dist, 5);
+
+  // Test where the first point is negative.
+  dist = distance(-1, -1, 2, 3);
+  EXPECT_DOUBLE_EQ(dist, 5);
+
+  // Test where the second point is negative.
+  dist = distance(2, 3, -1, -1);
+  EXPECT_DOUBLE_EQ(dist, 5);
+}
+
 TEST(Points, Constructor)
 {
   Position pt = Position();

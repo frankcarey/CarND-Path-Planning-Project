@@ -3,6 +3,7 @@
 //
 #include "gtest/gtest.h"
 #include "../src/vehicle.h"
+#include "../src/fsm.h"
 
 using namespace vehicle;
 using namespace utils;
@@ -11,7 +12,74 @@ using namespace utils;
 // Simple test, does not use gmock
 TEST(Vehicle, Constructor)
 {
-  Vehicle(Position(0, 0, 0));
+  double pre_time = system_clock::now().time_since_epoch().count() - 1;
+
+  Vehicle v{};
+
+  EXPECT_DOUBLE_EQ(v.x(),0);
+  EXPECT_DOUBLE_EQ(v.y(),0);
+  EXPECT_DOUBLE_EQ(v.yaw(),0);
+  EXPECT_DOUBLE_EQ(v.yaw_delta(),0);
+  EXPECT_DOUBLE_EQ(v.a(),0);
+  EXPECT_DOUBLE_EQ(v.v(),0);
+
+  // The default time should be recent.
+  EXPECT_GT(v.time().time_since_epoch().count() , pre_time);
+  EXPECT_LT(v.time().time_since_epoch().count() , system_clock::now().time_since_epoch().count());
+
+  // The two time items should not point to the same memory (they should be copies)
+  time_point<chrono::system_clock> temp_time_1 = v.time();
+  time_point<chrono::system_clock> temp_time_2 = v.time();
+
+  EXPECT_NE(&temp_time_1, &temp_time_2);
+
+
+}
+
+// Simple test, does not use gmock
+TEST(Vehicle, time)
+{
+  Vehicle v{};
+  time_point<chrono::system_clock> orig_time = v.time();
+
+  v.addSeconds(10);
+  // Durations are in microseconds (not milliseconds).
+  double diff = (v.time() - orig_time).count() / 1000000.;
+
+  // The default time should be recent.
+  EXPECT_EQ(diff,  10);
+
+  v.addSeconds(2.5);
+  EXPECT_DOUBLE_EQ(v.secondsDiff(orig_time), -12.5);
+
+}
+
+TEST(VehicleController, Constructor)
+{
+  // Waypoint map to read from
+  string map_file = "../data/highway_map.csv";
+  // The max s value before wrapping around the track back to 0
+  double max_s = 6945.554;
+  const double MAX_LEGAL_MPH = 100.5; // in MPH! TODO this is actually 50.
+  const int NUMBER_OF_LANES = 3;
+  const double MAX_ACCELERATION = 8; // in meters per second.
+  utils::Map trackMap =  utils::Map(map_file, max_s, MAX_LEGAL_MPH, NUMBER_OF_LANES);
+  Vehicle v{0, Position{1,2,3}};
+  fsm::VehicleFSM fsm{};
+
+  VehicleController carCtl = VehicleController(v, &fsm, &trackMap);
+
+  // Vehicle should be copied.
+  EXPECT_NE(&v, &(carCtl.vehicle));
+  EXPECT_DOUBLE_EQ(carCtl.vehicle.x(), 1);
+  EXPECT_DOUBLE_EQ(carCtl.vehicle.y(), 2);
+  EXPECT_DOUBLE_EQ(carCtl.vehicle.yaw(), 3);
+
+
+  // trackMap and fsm should use pointers.
+  EXPECT_EQ(&trackMap, carCtl.trackMap);
+  EXPECT_EQ(&fsm, carCtl.fsm);
+
 }
 
 //TEST(Points, Constructor)

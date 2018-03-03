@@ -35,14 +35,18 @@ int main() {
   utils::Map trackMap =  utils::Map(map_file, max_s, MAX_LEGAL_MPH, NUMBER_OF_LANES);
 
 
-  Vehicle car{};  // start in lane 1
+  Vehicle car{};
   VehicleFSM fsm{};
 
   //car.configure(road_data);
-  VehicleController carCtl = VehicleController(car, fsm, trackMap);
+  VehicleController carCtl = VehicleController(car, &fsm, &trackMap);
+  // TODO: Initialize this initial position in a better way.
+  //carCtl.vehicle = Vehicle(0, Position(909.47, 1128.67));
   carCtl.max_acceleration = MAX_ACCELERATION;
 
-  h.onMessage([&carCtl](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
+  bool initialized = false;
+
+  h.onMessage([&carCtl, &initialized](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -59,47 +63,64 @@ int main() {
 
         if (event == "telemetry") {
 
-          // j[1] is the data JSON object
+          json msgJson;
 
+          cout << j.dump() << " : JSON\n";
+
+          double x = j[1]["x"];
+          double y = j[1]["y"];
+          double yaw = j[1]["yaw"];
+          double speed = j[1]["speed"];
+          double s_ = j[1]["s"];
+          double d = j[1]["d"];
+
+
+          // j[1] is the data JSON object
           // Main car's localization Data
           carCtl.update(j[1]["x"], j[1]["y"], j[1]["yaw"], j[1]["speed"], j[1]["previous_path_x"].size());
 
+          // Just return so we get a previous state.
+          if(!initialized) {
+            initialized = true;
+          } else {
 
-          // Previous path's end s and d values
-          double end_path_s = j[1]["end_path_s"];
-          double end_path_d = j[1]["end_path_d"];
 
-          // Sensor Fusion Data, a list of all other cars on the same side of the road.
-          //["sensor_fusion"] A 2d vector of cars and then that car's [
-          // * [0] car's unique ID
-          // * [1] car's x position in map coordinates
-          // * [2] car's y position in map coordinates
-          // * [3] car's x velocity in m/s
-          // * [4] car's y velocity in m/s
-          // * [5] car's s position in frenet coordinates
-          // * [6] car's d position in frenet coordinates.
-          auto sensor_fusion = j[1]["sensor_fusion"];
-          vector<Vehicle> other_vehicles;
-          for (auto &vehicle_data : sensor_fusion) {
-            Vehicle new_vehicle{vehicle_data[0], Position{vehicle_data[1], vehicle_data[2]}};
-            new_vehicle.v(utils::distance(vehicle_data[3], vehicle_data[4]));
+            // Previous path's end s and d values
+            double end_path_s = j[1]["end_path_s"];
+            double end_path_d = j[1]["end_path_d"];
 
-            other_vehicles.emplace_back(new_vehicle);
+            // Sensor Fusion Data, a list of all other cars on the same side of the road.
+            //["sensor_fusion"] A 2d vector of cars and then that car's [
+            // * [0] car's unique ID
+            // * [1] car's x position in map coordinates
+            // * [2] car's y position in map coordinates
+            // * [3] car's x velocity in m/s
+            // * [4] car's y velocity in m/s
+            // * [5] car's s position in frenet coordinates
+            // * [6] car's d position in frenet coordinates.
+            auto sensor_fusion = j[1]["sensor_fusion"];
+            vector<Vehicle> other_vehicles;
+            for (auto &vehicle_data : sensor_fusion) {
+              Vehicle new_vehicle{vehicle_data[0], Position{vehicle_data[1], vehicle_data[2]}};
+              new_vehicle.v(utils::distance(vehicle_data[3], vehicle_data[4]));
+
+              other_vehicles.emplace_back(new_vehicle);
+            }
+
+            // Generate the predictions for the other cars.
+            map<int, vector<Vehicle>> other_vehicle_predictions;
+            for (Vehicle &other_vehicle: other_vehicles) {
+              other_vehicle_predictions[other_vehicle.id()] = carCtl.generate_predictions(3, other_vehicle);
+            }
+
+            // Choose the next state based on the trajectories of the other cars.
+            std::pair<fsm::STATE, vector<Vehicle>> best_state_path = carCtl.choose_next_state(
+                other_vehicle_predictions);
+
+            carCtl.fsm->state = best_state_path.first;
+
+            carCtl.extend_trajectory(best_state_path.second);
           }
-
-          // Generate the predictions for the other cars.
-          map<int, vector<Vehicle>> other_vehicle_predictions;
-          for (Vehicle &other_vehicle: other_vehicles) {
-            other_vehicle_predictions[other_vehicle.id()] = carCtl.generate_predictions(3, other_vehicle);
-          }
-
-          // Choose the next state based on the trajectories of the other cars.
-          std::pair<fsm::STATE, vector<Vehicle>> best_state_path = carCtl.choose_next_state(other_vehicle_predictions);
-
-          carCtl.fsm.state = best_state_path.first;
-
-          carCtl.extend_trajectory(best_state_path.second);
-
 
           vector<double> next_x_vals;
           vector<double> next_y_vals;
@@ -109,7 +130,6 @@ int main() {
             next_y_vals.emplace_back(point.y());
           }
 
-          json msgJson;
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 

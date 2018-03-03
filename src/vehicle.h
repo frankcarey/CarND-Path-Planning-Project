@@ -43,6 +43,10 @@ namespace vehicle {
 
     void time(time_point<system_clock> time);
 
+    void addSeconds(double seconds);
+
+    double secondsDiff(time_point<system_clock> other_time);
+
     double v();
 
     void v(double v);
@@ -92,9 +96,9 @@ namespace vehicle {
 
     Vehicle last_vehicle;
 
-    Map trackMap;
+    Map *trackMap;
 
-    fsm::VehicleFSM &fsm;
+    fsm::VehicleFSM *fsm;
 
     double max_acceleration;
 
@@ -108,13 +112,13 @@ namespace vehicle {
     * Constructor
     */
 
-    VehicleController(Vehicle &v, fsm::VehicleFSM &fsm, Map &trackMap);
+    VehicleController(Vehicle v, fsm::VehicleFSM *fsm, Map *trackMap);
 
     std::pair<fsm::STATE, vector<Vehicle>> choose_next_state(map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     vector<Vehicle> generate_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    Vehicle get_lane_kinematic(int lane, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions);
+    Vehicle get_lane_kinematic(int lane, double timedelta, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     int get_vehicle_behind(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
 

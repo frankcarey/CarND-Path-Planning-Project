@@ -18,7 +18,12 @@ namespace vehicle {
  * Initializes Vehicle
  */
 
-  Vehicle::Vehicle()=default;
+  Vehicle::Vehicle() {
+    this->_v =0;
+    this->_a =0;
+    this->_yaw_delta =0;
+    this->_time = system_clock::now();
+  };
 
   Vehicle::Vehicle(int id, Position pos) {
     this->_id = id;
@@ -40,6 +45,15 @@ namespace vehicle {
   void Vehicle::time(time_point<system_clock> time) {
     this->_time = time;
   };
+
+  void Vehicle::addSeconds(double seconds) {
+    this->_time += chrono::microseconds((int) (seconds * 1000000));
+  };
+
+  double Vehicle::secondsDiff(time_point<system_clock> other_time) {
+    return (other_time - this->_time).count() / 1000000.;
+  };
+
 
   double Vehicle::x() {
     return this->_position.x;
@@ -115,12 +129,15 @@ namespace vehicle {
  * Initializes VehicleController
  */
 
-  VehicleController::VehicleController(Vehicle &vehicle, VehicleFSM &fsm, Map &trackMap) : vehicle(vehicle), fsm(fsm), trackMap(trackMap) {
+  VehicleController::VehicleController(Vehicle vehicle, VehicleFSM *fsm, Map *trackMap) {
+    this->vehicle = vehicle;
+    this->fsm = fsm;
+    this->trackMap = trackMap;
     this->last_vehicle = vehicle.clone();
   }
 
   int VehicleController::get_lane() {
-    return this->trackMap.getXYLane(this->vehicle.position());
+    return this->trackMap->getXYLane(this->vehicle.position());
   }
 
   void VehicleController::update(double x, double y, double yaw, double speed_mph, int prev_size) {
@@ -151,7 +168,7 @@ namespace vehicle {
     OUTPUT: The the best (lowest cost) trajectory corresponding to the next ego vehicle state.
 
     */
-    vector<fsm::STATE> states = this->fsm.successor_states(this->get_lane());
+    vector<fsm::STATE> states = this->fsm->successor_states(this->get_lane());
     double cost;
     vector<double> costs;
     vector<fsm::STATE> final_states;
@@ -174,11 +191,12 @@ namespace vehicle {
   }
 
   Vehicle VehicleController::predict_next(Vehicle &car, double timedelta) {
-    FrenetPos car_frenet = this->trackMap.getFrenet(car.position());
+    FrenetPos car_frenet = this->trackMap->getFrenet(car.position());
     car_frenet.s = car_frenet.s + (car.v() * timedelta) + (0.5 * car.a() * timedelta * timedelta);
     Vehicle next_car = car.clone();
     next_car.v((car.a() * timedelta) + car.v());
-    next_car.position(this->trackMap.getXY(car_frenet));
+    next_car.position(this->trackMap->getXY(car_frenet));
+    next_car.addSeconds(timedelta);
     return next_car;
   }
 
@@ -207,20 +225,19 @@ namespace vehicle {
     return trajectory;
   }
 
-  Vehicle VehicleController::get_lane_kinematic(int lane, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions) {
+  Vehicle VehicleController::get_lane_kinematic(int lane, double timedelta, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions) {
     /*
     Gets next timestep kinematics (position, velocity, acceleration)
     for a given lane. Tries to choose the maximum velocity and acceleration,
     given other vehicle positions and accel/velocity constraints.
     */
-    double timedelta = 1;
 
     //TODO: Get the actual acceleration limit based on a timedetla.
     double max_velocity_accel_limit = (this->max_acceleration * timedelta) + this->vehicle.v();
 
     int car_ahead_id = this->get_vehicle_ahead(lane, other_vehicle_predictions);
     int car_behind_id = this->get_vehicle_ahead(lane, other_vehicle_predictions);
-    FrenetPos car_frenet = this->trackMap.getFrenet(this->vehicle.position());
+    FrenetPos car_frenet = this->trackMap->getFrenet(this->vehicle.position());
 
     double new_v;
     double new_a;
@@ -228,7 +245,7 @@ namespace vehicle {
     // There is a car ahead.
     if (car_ahead_id) {
       Vehicle car_ahead = other_vehicle_predictions[car_ahead_id][0];
-      FrenetPos car_ahead_frenet= this->trackMap.getFrenet(car_ahead.position());
+      FrenetPos car_ahead_frenet= this->trackMap->getFrenet(car_ahead.position());
 
       // There is also a car behind.
       if (car_behind_id) {
@@ -254,13 +271,16 @@ namespace vehicle {
     car_frenet.s = car_frenet.s + (this->vehicle.v() * timedelta) + (0.5 * new_a * timedelta * timedelta);
 
     // Create the kinematic as a new Vehicle;
-    Vehicle lane_kinematic = Vehicle(this->vehicle.id(), this->trackMap.getXY(car_frenet));
+    Vehicle lane_kinematic = Vehicle(this->vehicle.id(), this->trackMap->getXY(car_frenet));
     lane_kinematic.v(new_v);
     lane_kinematic.a(new_a);
+    lane_kinematic.addSeconds(timedelta);
 
     return lane_kinematic;
 
   }
+
+  /** TRAJECTORY GENERATION **/
 
   vector<Vehicle> VehicleController::constant_speed_trajectory(map<int, vector<Vehicle>> &other_vehicle_predictions) {
     /*
@@ -268,13 +288,17 @@ namespace vehicle {
     */
 
     double timedelta = 1.;
+    double steps = 3;
+    vector<Vehicle> trajectory{this->vehicle.clone()};
 
-    // TODO: This should take something like number of increments and increment delta?
+    for (int i=0; i<steps; i++) {
+      Vehicle next_vehicle = trajectory[0].clone();
+      next_vehicle.position(this->trackMap->position_at(next_vehicle.position(), timedelta));
+      next_vehicle.addSeconds(timedelta);
+      trajectory.push_back(next_vehicle);
+    }
 
-    Vehicle next_vehicle_in_trajectory = this->vehicle.clone();
-    next_vehicle_in_trajectory.position(this->trackMap.position_at(this->vehicle.position(), timedelta));
-\
-    return  {this->vehicle.clone(), next_vehicle_in_trajectory};
+    return trajectory;
   }
 
   vector<Vehicle> VehicleController::keep_lane_trajectory(map<int, vector<Vehicle>> &other_vehicle_predictions) {
@@ -282,29 +306,31 @@ namespace vehicle {
     Generate a keep lane trajectory.
     */
 
-    double timedelta = 1;
+    double timedelta = 1.;
+    double steps = 3;
+    vector<Vehicle> trajectory{this->vehicle.clone()};
 
-    // First trajectory item
-    vector<Vehicle> trajectory = {this->vehicle.clone()};
-
-    // Second trajectory item
-    trajectory.emplace_back(this->get_lane_kinematic(this->get_lane(), INFINITY, other_vehicle_predictions));
+    for (int i=0; i<steps; i++) {
+      trajectory.push_back(this->get_lane_kinematic(this->get_lane(), timedelta, INFINITY, other_vehicle_predictions));
+      timedelta += 1.;
+    }
 
     return trajectory;
   }
 
   vector<Vehicle> VehicleController::prep_lane_change_trajectory(STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions) {
 
+    double timedelta = 1.;
     int new_lane = this->get_lane() + LANE_DIRECTION.at(state);
     // First trajectory item
     vector<Vehicle> trajectory = {vehicle.clone()};
     // First get the next best trajectory for the current lane.
-    Vehicle best_curr_lane_kinematic = get_lane_kinematic(this->get_lane(), INFINITY, other_vehicle_predictions);
+    Vehicle best_curr_lane_kinematic = get_lane_kinematic(this->get_lane(), timedelta, INFINITY, other_vehicle_predictions);
 
     int car_behind_index = this->get_vehicle_behind(this->get_lane(), other_vehicle_predictions);
 
     if (! car_behind_index){
-      Vehicle best_new_lane_kinematic = get_lane_kinematic(new_lane, INFINITY, other_vehicle_predictions);
+      Vehicle best_new_lane_kinematic = get_lane_kinematic(new_lane, timedelta, INFINITY, other_vehicle_predictions);
       //Choose kinematics with lowest velocity. // TODO WHY?
       if (best_new_lane_kinematic.v() < best_curr_lane_kinematic.v()) {
         trajectory.emplace_back(best_new_lane_kinematic);
@@ -319,6 +345,7 @@ namespace vehicle {
     /*
     Generate a lane change trajectory.
     */
+    double timedelta = 1;
     int new_lane = this->get_lane() + LANE_DIRECTION.at(state);
     // First trajectory item
     vector<Vehicle> trajectory = {};
@@ -328,7 +355,7 @@ namespace vehicle {
       return trajectory;
     }
     trajectory.emplace_back(this->vehicle.clone());
-    Vehicle kinematic = get_lane_kinematic(new_lane, INFINITY, other_vehicle_predictions);
+    Vehicle kinematic = get_lane_kinematic(new_lane, timedelta, INFINITY, other_vehicle_predictions);
     trajectory.emplace_back(kinematic);
     return trajectory;
   }
@@ -340,12 +367,12 @@ namespace vehicle {
     */
     double max_s = -1;
     int closest_vehicle_found = 0; // All trajectories for cars don't start with 0, so 0 is not found.
-    FrenetPos car = this->trackMap.getFrenet(this->vehicle.position());
+    FrenetPos car = this->trackMap->getFrenet(this->vehicle.position());
 
     for (auto &trajectory : other_vehicle_predictions) {
       // Get the first trajectory item for this vehicle id.
-      FrenetPos other_car = this->trackMap.getFrenet(trajectory.second[0].position());
-      int other_car_lane = this->trackMap.getFrenetLane(other_car);
+      FrenetPos other_car = this->trackMap->getFrenet(trajectory.second[0].position());
+      int other_car_lane = this->trackMap->getFrenetLane(other_car);
 
       if (other_car_lane == lane && other_car.s < car.s && other_car.s > max_s) {
         max_s = other_car.s;
@@ -362,13 +389,13 @@ namespace vehicle {
     */
     double min_s = RLIM_INFINITY;
     int closest_vehicle_found = 0; // All trajectories for cars don't start with 0, so 0 is not found.
-    FrenetPos car = this->trackMap.getFrenet(this->vehicle.position());
+    FrenetPos car = this->trackMap->getFrenet(this->vehicle.position());
 
     for (auto &trajectory : other_vehicle_predictions) {
       // FYI: for a map<first, second>, it->second[0] would be the first instance of the second type (so the first vehicle).
       // Get the first trajectory item for this vehicle id.
-      FrenetPos other_car = this->trackMap.getFrenet(trajectory.second[0].position());
-      int other_car_lane = this->trackMap.getFrenetLane(other_car);
+      FrenetPos other_car = this->trackMap->getFrenet(trajectory.second[0].position());
+      int other_car_lane = this->trackMap->getFrenetLane(other_car);
       if (other_car_lane == lane && other_car.s > car.s && other_car.s < min_s) {
         min_s = other_car.s;
         closest_vehicle_found = trajectory.first;
@@ -382,13 +409,13 @@ namespace vehicle {
     Returns a true if a vehicle is found ahead of the current vehicle, false otherwise. The passed reference
     rVehicle is updated if a vehicle is found.
     */
-    FrenetPos car = this->trackMap.getFrenet(this->vehicle.position());
+    FrenetPos car = this->trackMap->getFrenet(this->vehicle.position());
 
     for (auto &trajectory : other_vehicle_predictions) {
       // FYI: for a map<first, second>, it->second[0] would be the first instance of the second type (so the first vehicle).
       // Get the first trajectory item for this vehicle id.
-      FrenetPos other_car = this->trackMap.getFrenet(trajectory.second[0].position());
-      int other_car_lane = this->trackMap.getFrenetLane(other_car);
+      FrenetPos other_car = this->trackMap->getFrenet(trajectory.second[0].position());
+      int other_car_lane = this->trackMap->getFrenetLane(other_car);
 
       // We're only concerned with the cars in a specific lane.
       if (other_car_lane == lane) {
@@ -434,7 +461,7 @@ namespace vehicle {
 
     // Create separate splines for the x and y coordinates.
     for(int i=0; i < path.size(); i++){
-      FrenetPos frenet = this->trackMap.getFrenet(path[i].position());
+      FrenetPos frenet = this->trackMap->getFrenet(path[i].position());
       time_way_pts.emplace_back((double) (path[0].time() - path[i].time()).count());
       s_way_pts.emplace_back(frenet.s);
       d_way_pts.emplace_back(frenet.d);
@@ -462,7 +489,7 @@ namespace vehicle {
             s_spline(inc * time_step_size),
             d_spline(inc * time_step_size)
         };
-        auto next_trajectory_item = Vehicle{0, this->trackMap.getXY(next_frenet)};
+        auto next_trajectory_item = Vehicle{0, this->trackMap->getXY(next_frenet)};
         next_trajectory_item.v(v_spline(inc * time_step_size));
         this->trajectory.push_back(next_trajectory_item);
       }

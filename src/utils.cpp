@@ -238,7 +238,7 @@ namespace utils {
 
     for (int i = 0; i < this->waypoints_x.size(); i++) {
       double map_x = this->waypoints_x[i];
-      double map_y = this->waypoints_x[i];
+      double map_y = this->waypoints_y[i];
       double dist = utils::distance(pt.x, pt.y, map_x, map_y);
       if (dist < closestLen) {
         closestLen = dist;
