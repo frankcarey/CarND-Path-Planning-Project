@@ -8,6 +8,7 @@
 #include "json.hpp"
 #include "vehicle.h"
 #include "utils.h"
+#include "path_planner.h"
 
 
 using namespace std;
@@ -78,6 +79,7 @@ int main() {
           // j[1] is the data JSON object
           // Main car's localization Data
           carCtl.update(x, y, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
+          PathPlanner
 
           // Just return so we get a previous state.
           if(!initialized) {
@@ -88,6 +90,9 @@ int main() {
             // Previous path's end s and d values
             double end_path_s = j[1]["end_path_s"];
             double end_path_d = j[1]["end_path_d"];
+
+
+            auto future_carCtl = VehicleController(carCtl.vehicle, &fsm, &trackMap);
 
             // Sensor Fusion Data, a list of all other cars on the same side of the road.
             //["sensor_fusion"] A 2d vector of cars and then that car's [
