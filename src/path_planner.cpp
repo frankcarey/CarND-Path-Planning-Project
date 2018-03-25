@@ -6,8 +6,10 @@
 
 using namespace vehicle;
 
+PathPlanner::PathPlanner(){
+}
 
-std::pair<fsm::STATE, vector<Vehicle>> PathPlanner::choose_next_state(VehicleController ctrl, map<int, vector<Vehicle>> &other_vehicle_predictions) {
+std::pair<fsm::STATE, vector<Vehicle>> PathPlanner::choose_next_state(VehicleController &ctrl, map<int, vector<Vehicle>> &other_vehicle_predictions) {
   /*
   Here you can implement the transition_function code from the Behavior Planning Pseudocode
   classroom concept. Your goal will be to return the best (lowest cost) trajectory corresponding
@@ -28,7 +30,7 @@ std::pair<fsm::STATE, vector<Vehicle>> PathPlanner::choose_next_state(VehicleCon
   for (fsm::STATE &state : states) {
     vector<Vehicle> candidate_trajectory = ctrl.generate_trajectory(state, other_vehicle_predictions);
     if (!candidate_trajectory.empty()) {
-      cost = ctrl.calculate_cost(candidate_trajectory, other_vehicle_predictions);
+      cost = this->calculate_cost(candidate_trajectory, other_vehicle_predictions);
       costs.push_back(cost);
       final_trajectories.push_back(candidate_trajectory);
       final_states.push_back(state);

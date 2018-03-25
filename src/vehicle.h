@@ -94,7 +94,7 @@ namespace vehicle {
 
     Vehicle vehicle;
 
-    Vehicle last_vehicle;
+    //Vehicle last_vehicle;
 
     Map *trackMap;
 
@@ -113,8 +113,6 @@ namespace vehicle {
     */
 
     VehicleController(Vehicle v, fsm::VehicleFSM *fsm, Map *trackMap);
-
-    std::pair<fsm::STATE, vector<Vehicle>> choose_next_state(map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     vector<Vehicle> generate_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
@@ -148,7 +146,7 @@ namespace vehicle {
 
     void extend_trajectory(vector<Vehicle> &path);
 
-    double calculate_cost(vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions);
+    VehicleController clone();
 
   };
 }

@@ -134,10 +134,13 @@ namespace vehicle {
     this->vehicle = vehicle;
     this->fsm = fsm;
     this->trackMap = trackMap;
-    this->last_vehicle = vehicle.clone();
+    this->max_acceleration = 8;
+
+    //this->last_vehicle = vehicle.clone();
   }
 
   int VehicleController::get_lane() {
+    return 1; //TODO: Don't hardcode this.
     return this->trackMap->getXYLane(this->vehicle.position());
   }
 
@@ -146,7 +149,7 @@ namespace vehicle {
     this->last_update_time = system_clock::now();
     //cout << time_diff<< "ms \n";
 
-    this->last_vehicle = vehicle.clone();
+    //this->last_vehicle = vehicle.clone();
 
     this->vehicle.x(x);
     this->vehicle.y(y);
@@ -160,7 +163,7 @@ namespace vehicle {
 
   Vehicle VehicleController::predict_next(Vehicle &car, double timedelta) {
     FrenetPos car_frenet = this->trackMap->getFrenet(car.position());
-    car_frenet.s = car_frenet.s + (car.v() * timedelta) + (0.5 * car.a() * timedelta * timedelta);
+    car_frenet.s = car_frenet.s + (car.v() * timedelta); //+ (0.5 * car.a() * timedelta * timedelta);
     Vehicle next_car = car.clone();
     next_car.v((car.a() * timedelta) + car.v());
     next_car.position(this->trackMap->getXY(car_frenet));
@@ -236,7 +239,8 @@ namespace vehicle {
     // Get the new acceleration and postion based on the new velocity.
     new_a = new_v - this->vehicle.v() / timedelta; //Equation: (v_1 - v_0)/t = acceleration
     // Get new position after timedelta.
-    car_frenet.s = car_frenet.s + (this->vehicle.v() * timedelta) + (0.5 * new_a * timedelta * timedelta);
+    //car_frenet.s = car_frenet.s + (this->vehicle.v() * timedelta) + (0.5 * new_a * timedelta * timedelta);
+    car_frenet.s = car_frenet.s + (new_v * timedelta);
 
     // Create the kinematic as a new Vehicle;
     Position new_pos = this->trackMap->getXY(car_frenet);
@@ -263,16 +267,18 @@ namespace vehicle {
 
     double timedelta = 1.;
     double steps = 3;
-    vector<Vehicle> trajectory{this->vehicle.clone()};
-
-    for (int i=0; i<steps; i++) {
-      Vehicle next_vehicle = trajectory[0].clone();
-      next_vehicle.position(this->trackMap->position_at(next_vehicle.position(), timedelta));
-      next_vehicle.addSeconds(timedelta);
-      trajectory.push_back(next_vehicle);
-    }
-
+    vector<Vehicle> trajectory{};
     return trajectory;
+//    vector<Vehicle> trajectory{this->vehicle.clone()};
+//
+//    for (int i=0; i<steps; i++) {
+//      Vehicle next_vehicle = trajectory[0].clone();
+//      next_vehicle.position(this->trackMap->position_at(next_vehicle.position(), timedelta));
+//      next_vehicle.addSeconds(timedelta);
+//      trajectory.push_back(next_vehicle);
+//    }
+//
+//    return trajectory;
   }
 
   vector<Vehicle> VehicleController::keep_lane_trajectory(map<int, vector<Vehicle>> &other_vehicle_predictions) {
@@ -280,12 +286,16 @@ namespace vehicle {
     Generate a keep lane trajectory.
     */
 
+    cout << "\nKeep lane\n";
+
     double timedelta = 1.;
-    double steps = 3;
-    vector<Vehicle> trajectory{this->vehicle.clone()};
+    double steps = 4;
+    //vector<Vehicle> trajectory{this->vehicle.clone()};
+    vector<Vehicle> trajectory{};
+    map<int, vector<Vehicle>> no_other_vehicles{};
 
     for (int i=0; i<steps; i++) {
-      trajectory.push_back(this->get_lane_kinematic(this->get_lane(), timedelta, INFINITY, other_vehicle_predictions));
+      trajectory.push_back(this->get_lane_kinematic(this->get_lane(), timedelta, this->trackMap->speed_limit(), no_other_vehicles));
       timedelta += 1.;
     }
 
@@ -436,6 +446,7 @@ namespace vehicle {
     // Create separate splines for the x and y coordinates.
     for(int i=0; i < path.size(); i++){
       FrenetPos frenet = this->trackMap->getFrenet(path[i].position());
+      cout << path[0].secondsDiff(path[i].time()) << "\n";
       time_way_pts.emplace_back(path[0].secondsDiff(path[i].time()));
       s_way_pts.emplace_back(frenet.s);
       d_way_pts.emplace_back(frenet.d);
@@ -446,11 +457,12 @@ namespace vehicle {
     tk::spline d_spline{};
     tk::spline v_spline{};
 
+    // TODO: NEXT- this code is broken I think. The points generated are really weird.
     s_spline.set_points(time_way_pts, s_way_pts);
     d_spline.set_points(time_way_pts, d_way_pts);
     v_spline.set_points(time_way_pts, v_way_pts);
 
-    const double total_time = 1.;
+    const double total_time = 1;
     const double time_step_size = 0.02; // in seconds.
     double time_left = total_time - (this->trajectory.size() * 0.02);
 
@@ -466,6 +478,7 @@ namespace vehicle {
         auto next_trajectory_item = Vehicle{0, this->trackMap->getXY(next_frenet)};
         next_trajectory_item.v(v_spline(inc * time_step_size));
         this->trajectory.push_back(next_trajectory_item);
+        printf ("x: %8.8f y: %8.8f yaw: %8.8f \n", next_trajectory_item.x(), next_trajectory_item.y(), next_trajectory_item.yaw());
       }
     }
   }

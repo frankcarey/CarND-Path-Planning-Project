@@ -104,7 +104,7 @@ namespace utils {
 
     Position position_at(Position pos, double timedelta);
 
-
+    //Spline Map::getLocalSpline(Position pt, int n_points);
 
   };
 

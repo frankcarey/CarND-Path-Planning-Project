@@ -269,7 +269,7 @@ namespace utils {
 
   // Transform from Cartesian x,y coordinates to FrenetPos s,d coordinates
   FrenetPos Map::getFrenet(Position pt) {
-    int next_wp = this->NextWaypoint(pt);
+    int next_wp = this->ClosestWaypoint(pt);
 
     int prev_wp;
     prev_wp = next_wp - 1;
@@ -338,6 +338,25 @@ namespace utils {
     return {x, y, normalize_rad(heading)};
 
   }
+
+//  Spline Map::getLocalSpline(Position pt, int n_points) {
+//
+//    if ((n_points % 1) == 0) {
+//      // TODO: Throw exception unless is odd.
+//    }
+//    Spline spline{};
+//
+//    //waypoints
+//
+//    int pts_per_direction = n_points / 2;
+//
+//    int closest_idx = this->ClosestWaypoint(pt);
+//
+//    for(int i=pts_per_direction; i > 0; i--) {
+//
+//    }
+//    return spline;
+//  }
 
   int Map::getXYLane(Position pos) {
     return this->getFrenetLane(this->getFrenet(pos));

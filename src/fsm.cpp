@@ -26,7 +26,10 @@ namespace fsm {
     instantaneously, so LCL and LCR can only transition back to KL.
     */
     vector <STATE> states;
+
     states.emplace_back(KL);
+    return states;
+    //TODO: Fix this.
     if (state == KL) {
       states.emplace_back(PLCL);
       states.emplace_back(PLCR);

@@ -6,18 +6,15 @@
 #define PATH_PLANNING_PATH_PLANNER_H
 
 #include "vehicle.h"
+
 using namespace vehicle;
 
 
 class PathPlanner {
 public:
   PathPlanner();
-  std::pair<fsm::STATE, vector<Vehicle>> choose_next_state(VehicleController ctrl, map<int, vector<Vehicle>> &other_vehicle_predictions);
+  std::pair<fsm::STATE, vector<Vehicle>> choose_next_state(VehicleController &ctrl, map<int, vector<Vehicle>> &other_vehicle_predictions);
   double calculate_cost(vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions);
 
 };
-
-PathPlanner::PathPlanner(){
-}
-
 #endif //PATH_PLANNING_PATH_PLANNER_H
