@@ -78,10 +78,10 @@ int main() {
           double s = j[1]["s"];
           double d = j[1]["d"];
 
-
           // j[1] is the data JSON object
           // Main car's localization Data
           carCtl.update(x, y, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
+          carCtl.trackMap->update_local_waypoints(carCtl.vehicle.position(), 2, 2);
 
           // Just return so we get a previous state.
           if(!initialized) {
@@ -147,29 +147,39 @@ int main() {
           FrenetPos lastF;
           //exit(0);
           int prev_path_size = j[1]["previous_path_x"].size();
-          int generate_path_size = 500 - prev_path_size;
+          cout << "prev_path_size: " << prev_path_size << "\n";
+          int generate_path_size = 50 - prev_path_size;
+          cout << "generate_path_size: " << generate_path_size << "\n";
           if (prev_path_size <= 0) {
             lastF = carCtl.trackMap->getFrenet(carCtl.vehicle.position());
           } else {
             Position lastPosXY{
                 j[1]["previous_path_x"][prev_path_size - 1],
-                j[1]["previous_path_y"][prev_path_size - 1]
+                j[1]["previous_path_y"][prev_path_size - 1],
+                carCtl.vehicle.yaw()
             };
-           lastF = carCtl.trackMap->getFrenet(lastPosXY);
+            cout << "last_x: " << lastPosXY.x << " last y: " << lastPosXY.y << "\n";
+            lastF = carCtl.trackMap->getFrenet(lastPosXY);
+            cout << "last_s: " << lastF.s << " last d: " << lastF.d << "\n";
           }
 
           for (int i=0; i<prev_path_size; i++) {
-            next_x_vals.emplace_back(j[1]["previous_path_x"][i]);
-            next_y_vals.emplace_back(j[1]["previous_path_y"][i]);
+            next_x_vals.push_back(j[1]["previous_path_x"][i]);
+            next_y_vals.push_back(j[1]["previous_path_y"][i]);
           }
-          for (int i=0; i<generate_path_size; i++) {
+          for (int i=1; i<=generate_path_size; i++) {
             double inc = i/10.;
+            cout << "inc: " << inc << "\n";
             //double s__ = lastF.s + inc;
             FrenetPos posF{lastF.s + inc, 6};
+            cout << "new s: " << lastF.s + inc << "\n";
+
             Position posXY = carCtl.trackMap->getXY(posF);
 
-            next_x_vals.emplace_back(posXY.x);
-            next_y_vals.emplace_back(posXY.y);
+            cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
+
+            next_x_vals.push_back(posXY.x);
+            next_y_vals.push_back(posXY.y);
           }
 
 

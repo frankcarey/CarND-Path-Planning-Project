@@ -86,9 +86,15 @@ namespace utils {
     vector<double> waypoints_dx;
     vector<double> waypoints_dy;
 
-    int ClosestWaypoint(Position pt);
+    vector<double> interpolated_waypoints_x;
+    vector<double> interpolated_waypoints_y;
+    vector<double> interpolated_waypoints_s;
+    vector<double> interpolated_waypoints_dx;
+    vector<double> interpolated_waypoints_dy;
 
-    int NextWaypoint(Position pt);
+    int ClosestWaypoint(Position pt, vector<double> wp_x, vector<double> wp_y);
+
+    int NextWaypoint(Position pt, vector<double> wp_x, vector<double> wp_y);
 
     FrenetPos getFrenet(Position pt);
 
@@ -103,6 +109,8 @@ namespace utils {
     double speed_limit(); // in meters per second.
 
     Position position_at(Position pos, double timedelta);
+
+    void update_local_waypoints(Position pt, int wp_behind = 2, int wp_ahead = 2);
 
     //Spline Map::getLocalSpline(Position pt, int n_points);
 
