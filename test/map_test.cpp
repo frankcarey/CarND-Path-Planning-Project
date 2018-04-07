@@ -51,15 +51,52 @@ TEST_F(MapTest, ClosestWaypoint) {
   Position pos_start{909.48, 1128.67, 0};
   closest_wp = trackMap.ClosestWaypoint(pos_start, trackMap.waypoints_x, trackMap.waypoints_y);
   EXPECT_EQ(closest_wp, 4);
+
+  Position somePos{930.079, 1128.85, 0.00488783};
+  closest_wp = trackMap.ClosestWaypoint(somePos, trackMap.waypoints_x, trackMap.waypoints_y);
+  EXPECT_EQ(closest_wp, 5);
+
+  Position next_and_closest_same{927.479, 1128.82, 0.00488783};
+  closest_wp = trackMap.ClosestWaypoint(next_and_closest_same, trackMap.waypoints_x, trackMap.waypoints_y);
+  EXPECT_EQ(closest_wp, 5);
   
+}
+
+TEST_F(MapTest, NextWaypoint) {
+
+  // Test that the coords for way point 8 give 8 as the closest.
+  Position pos_wp_8{1025.03, 1157.81, 0};
+  int next_wp = trackMap.NextWaypoint(pos_wp_8, trackMap.waypoints_x, trackMap.waypoints_y);
+  EXPECT_EQ(next_wp, 9);
+
+  // Test that the starting position is closest to wp 4.
+  Position pos_start{909.48, 1128.67, 0};
+  next_wp = trackMap.NextWaypoint(pos_start, trackMap.waypoints_x, trackMap.waypoints_y);
+  EXPECT_EQ(next_wp, 5);
+
+  Position somePos{930.079, 1128.85, 0.00488783};
+  next_wp = trackMap.NextWaypoint(somePos, trackMap.waypoints_x, trackMap.waypoints_y);
+  EXPECT_EQ(next_wp, 5);
+
+  Position next_and_closest_same{927.479, 1128.82, 0.00488783};
+  next_wp = trackMap.NextWaypoint(next_and_closest_same, trackMap.waypoints_x, trackMap.waypoints_y);
+  EXPECT_EQ(next_wp, 5);
+
 }
 
 TEST_F(MapTest, getFrenet) {
   // Starting point of the map when staring the simulator.
-  Position pos{909.48000000000001, 1128.6700000000001, 0};
-  FrenetPos frenet = trackMap.getFrenet(pos);
+  Position startPos{909.48000000000001, 1128.6700000000001, 0};
+  FrenetPos startFrenet = trackMap.getFrenet(startPos);
 
-  EXPECT_NEAR(frenet.s, 124.8336, 0.0003);
-  EXPECT_NEAR(frenet.d, 6.1648, 0.0003);
+  EXPECT_NEAR(startFrenet.s, 124.8336, 0.001);
+  EXPECT_NEAR(startFrenet.d, 6.1648, 0.001);
+
+
+  Position somePos{930.079, 1128.85, 0.00488783};
+  FrenetPos someFrenet = trackMap.getFrenet(somePos);
+
+  EXPECT_NEAR(someFrenet.s, 145.434, 0.001);
+  EXPECT_NEAR(someFrenet.d, 6.1648, 0.003);
 
 }

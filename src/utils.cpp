@@ -261,7 +261,7 @@ namespace utils {
     double angle = fabs(pt.yaw - heading);
     angle = min(2 * utils::pi() - angle, angle);
 
-    if (angle > utils::pi() / 4) {
+    if (angle > utils::pi() / 2) {
       closestWaypoint++;
       if (closestWaypoint == wp_x.size()) {
         closestWaypoint = 0;
@@ -277,9 +277,9 @@ namespace utils {
     vector<double>* wp_x;
     vector<double>* wp_y;
     vector<double>* wp_s;
-    int next_wp = this->NextWaypoint(pt, interpolated_waypoints_x, interpolated_waypoints_y);
+    int closest_wp = this->ClosestWaypoint(pt, interpolated_waypoints_x, interpolated_waypoints_y);
 
-    if (next_wp != -1) {
+    if (closest_wp != -1) {
       wp_s = &interpolated_waypoints_s;
       wp_x = &interpolated_waypoints_x;
       wp_y = &interpolated_waypoints_y;
@@ -287,8 +287,10 @@ namespace utils {
       wp_s = &waypoints_s;
       wp_x = &waypoints_x;
       wp_y = &waypoints_y;
-      next_wp = this->NextWaypoint(pt, (*wp_x), (*wp_y));
     }
+
+    closest_wp = this->ClosestWaypoint(pt,(*wp_x), (*wp_y));
+    int next_wp = this->NextWaypoint(pt, (*wp_x), (*wp_y));
 
     int prev_wp;
     prev_wp = next_wp - 1;
@@ -296,30 +298,44 @@ namespace utils {
       prev_wp = (int) (*wp_x).size() - 1;
     }
 
-    double n_x = (*wp_x)[next_wp] - (*wp_x)[prev_wp];
-    double n_y = (*wp_y)[next_wp] - (*wp_y)[prev_wp];
-    double x_x = pt.x - (*wp_x)[prev_wp];
-    double x_y = pt.y - (*wp_y)[prev_wp];
+    double wp_x_delta = (*wp_x)[next_wp] - (*wp_x)[prev_wp];
+    double wp_y_delta = (*wp_y)[next_wp] - (*wp_y)[prev_wp];
+    double pt_wp_x_delta = pt.x - (*wp_x)[prev_wp];
+    double pt_wp_y_delta = pt.y - (*wp_y)[prev_wp];
 
     // find the projection of x onto n
-    double proj_norm = (x_x * n_x + x_y * n_y) / (n_x * n_x + n_y * n_y);
-    double proj_x = proj_norm * n_x;
-    double proj_y = proj_norm * n_y;
+    double proj_norm = (pt_wp_x_delta * wp_x_delta + pt_wp_y_delta * wp_y_delta) /
+        (wp_x_delta * wp_x_delta + wp_y_delta *wp_y_delta);
+    double proj_x = proj_norm * wp_x_delta;
+    double proj_y = proj_norm * wp_y_delta;
 
-    double frenet_d = utils::distance(x_x, x_y, proj_x, proj_y);
+    double frenet_d = utils::distance(pt_wp_x_delta, pt_wp_y_delta, proj_x, proj_y);
 
     //see if d value is positive or negative by comparing it to a center point
 
     double center_x = 1000 - (*wp_x)[prev_wp];
     double center_y = 2000 - (*wp_y)[prev_wp];
-    double centerToPos = distance(center_x, center_y, x_x, x_y);
+    double centerToPos = distance(center_x, center_y, pt_wp_x_delta, pt_wp_y_delta);
     double centerToRef = distance(center_x, center_y, proj_x, proj_y);
 
     if (centerToPos <= centerToRef) {
       frenet_d *= -1;
     }
 
-    double frenet_s = (*wp_s)[prev_wp] + distance(0, 0, proj_x, proj_y);
+    // calculate s value
+    double frenet_s = 0;
+    for (int i = 0; i < prev_wp; i++) {
+      frenet_s += distance(
+        (*wp_x)[i],
+        (*wp_y)[i],
+        (*wp_x)[i + 1],
+        (*wp_y)[i + 1]
+      );
+    }
+
+    frenet_s += distance(0, 0, proj_x, proj_y);
+
+    //frenet_s += (*wp_s)[prev_wp] + distance(0, 0, proj_x, proj_y);
 
     return {frenet_s, frenet_d};
 
@@ -336,7 +352,7 @@ namespace utils {
     vector<double>* wp_y;
     vector<double>* wp_s;
 
-    if (frenet.s > interpolated_waypoints_s[0] && frenet.s < interpolated_waypoints_y.back()) {
+    if (interpolated_waypoints_s.size() > 0 && frenet.s > interpolated_waypoints_s[0] && frenet.s < interpolated_waypoints_y.back()) {
       wp_s = &interpolated_waypoints_s;
       wp_x = &interpolated_waypoints_x;
       wp_y = &interpolated_waypoints_y;
