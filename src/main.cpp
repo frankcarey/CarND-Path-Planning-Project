@@ -66,6 +66,9 @@ int main() {
 
         if (event == "telemetry") {
 
+          counter += 1;
+          cout << "COUNTER :" << counter << "\n";
+
           json msgJson;
 
           //cout << j.dump() << " : JSON\n";
@@ -80,8 +83,17 @@ int main() {
 
           // j[1] is the data JSON object
           // Main car's localization Data
+          cout << "simulator| x: " << x << " y:" << y <<  " s: " << s << " d: " << d << " deg: " << yaw_deg << " rad: " << yaw_radians << "\n";
+
           carCtl.update(x, y, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
           carCtl.trackMap->update_local_waypoints(carCtl.vehicle.position(), 2, 2);
+
+
+          cout << "post-update| x: " << carCtl.vehicle.x() << " y:" << carCtl.vehicle.y() << " yaw:" << carCtl.vehicle.yaw();
+          FrenetPos carF = carCtl.trackMap->getFrenet(carCtl.vehicle.position());
+          cout << "post-update-frenet| s: " << carF.s << " d:" <<carF.d;
+          Position carPos = carCtl.trackMap->getXY(carF);
+          cout << "post-update| x: " << carPos.x << " y:" << carPos.y  << " yaw:" << carPos.yaw;
 
           // Just return so we get a previous state.
           if(!initialized) {
@@ -145,41 +157,46 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
           FrenetPos lastF;
+          Position lastPosXY;
+
           //exit(0);
           int prev_path_size = j[1]["previous_path_x"].size();
           cout << "prev_path_size: " << prev_path_size << "\n";
           int generate_path_size = 50 - prev_path_size;
           cout << "generate_path_size: " << generate_path_size << "\n";
           if (prev_path_size <= 0) {
-            lastF = carCtl.trackMap->getFrenet(carCtl.vehicle.position());
+            lastPosXY = carCtl.vehicle.position();
           } else {
-            Position lastPosXY{
+            lastPosXY = Position{
                 j[1]["previous_path_x"][prev_path_size - 1],
                 j[1]["previous_path_y"][prev_path_size - 1],
+                // TODO using this yaw may not be accurate enough!
                 carCtl.vehicle.yaw()
             };
-            cout << "last_x: " << lastPosXY.x << " last y: " << lastPosXY.y << "\n";
-            lastF = carCtl.trackMap->getFrenet(lastPosXY);
-            cout << "last_s: " << lastF.s << " last d: " << lastF.d << "\n";
           }
+          cout << "last_x: " << lastPosXY.x << " last y: " << lastPosXY.y << "\n";
+          lastF = carCtl.trackMap->getFrenet(lastPosXY);
+          cout << "last_s: " << lastF.s << " last d: " << lastF.d << "\n";
+          int closest_wp = carCtl.trackMap->ClosestWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,carCtl.trackMap->waypoints_y);
+          int next_wp = carCtl.trackMap->NextWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,carCtl.trackMap->waypoints_y);
+          cout << "closest_wp: " << closest_wp << " next_wp: " << next_wp << "\n";
+
 
           for (int i=0; i<prev_path_size; i++) {
             next_x_vals.push_back(j[1]["previous_path_x"][i]);
             next_y_vals.push_back(j[1]["previous_path_y"][i]);
           }
-          for (int i=1; i<=generate_path_size; i++) {
-            double inc = i/10.;
-            cout << "inc: " << inc << "\n";
-            //double s__ = lastF.s + inc;
-            FrenetPos posF{lastF.s + inc, 6};
-            cout << "new s: " << lastF.s + inc << "\n";
+          if (generate_path_size > 25) {
+            for (int i = 1; i <= generate_path_size; i++) {
+              lastF.s += .1;
+              cout << "new s: " << lastF.s << "\n";
+              Position posXY = carCtl.trackMap->getXY(lastF);
+              cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
+              double dist = distance(posXY.x, posXY.y, lastPosXY.x, lastPosXY.y);
 
-            Position posXY = carCtl.trackMap->getXY(posF);
-
-            cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
-
-            next_x_vals.push_back(posXY.x);
-            next_y_vals.push_back(posXY.y);
+              next_x_vals.push_back(posXY.x);
+              next_y_vals.push_back(posXY.y);
+            }
           }
 
 
@@ -197,7 +214,9 @@ int main() {
           //this_thread::sleep_for(chrono::milliseconds(1000));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 
-          counter += 1;
+
+
+          counter -= 1;
 
         }
       } else {

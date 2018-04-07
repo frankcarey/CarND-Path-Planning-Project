@@ -407,7 +407,54 @@ namespace utils {
     return this->getXY(fpos);
   }
 
-  void Map::update_local_waypoints(Position pt, int wp_behind, int wp_ahead) {
+//  void Map::todo(double dist_inc) {
+//    auto num_waypoints = this->waypoints_x.size();
+//    int next_waypoint_index = this->NextWaypoint(pt , this->waypoints_x, this->waypoints_y);
+//    vector<double> coarse_waypoints_s, coarse_waypoints_x, coarse_waypoints_y,
+//        coarse_waypoints_dx, coarse_waypoints_dy;
+//    for (int i = -wp_behind; i < wp_ahead; i++) {
+//      // for smooting, take so many previous and so many subsequent waypoints
+//      auto idx = (next_waypoint_index + i) % num_waypoints;
+//
+//      // correct for wrap in s for spline interpolation (must be continuous)
+//      double current_s = this->waypoints_s[idx];
+//      double base_s = this->waypoints_s[next_waypoint_index];
+//      if (i < 0 && current_s > base_s) {
+//        current_s -= this->max_s;
+//      }
+//      if (i > 0 && current_s < base_s) {
+//        current_s += this->max_s;
+//      }
+//      coarse_waypoints_s.push_back(current_s);
+//      coarse_waypoints_x.push_back(this->waypoints_x[idx]);
+//      coarse_waypoints_y.push_back(this->waypoints_y[idx]);
+//      coarse_waypoints_dx.push_back(this->waypoints_dx[idx]);
+//      coarse_waypoints_dy.push_back(this->waypoints_dy[idx]);
+//    }
+//
+//
+//    // interpolation parameters
+//    double dist_inc = 0.5;
+//    auto num_interpolation_points = (int) ((coarse_waypoints_s[coarse_waypoints_s.size() - 1] - coarse_waypoints_s[0]) / dist_inc);
+//    vector<double> interpolated_waypoints_s, interpolated_waypoints_x, interpolated_waypoints_y,
+//        interpolated_waypoints_dx, interpolated_waypoints_dy;
+//    // interpolated s is simply...
+//    interpolated_waypoints_s.push_back(coarse_waypoints_s[0]);
+//    for (int i = 1; i < num_interpolation_points; i++) {
+//      this->interpolated_waypoints_s.push_back(coarse_waypoints_s[0] + i * dist_inc);
+//    }
+//    this->interpolated_waypoints_x = interpolate_points(coarse_waypoints_s, coarse_waypoints_x, dist_inc,
+//                                                        num_interpolation_points);
+//    this->interpolated_waypoints_y = interpolate_points(coarse_waypoints_s, coarse_waypoints_y, dist_inc,
+//                                                        num_interpolation_points);
+//    this->interpolated_waypoints_dx = interpolate_points(coarse_waypoints_s, coarse_waypoints_dx, dist_inc,
+//                                                         num_interpolation_points);
+//    this->interpolated_waypoints_dy = interpolate_points(coarse_waypoints_s, coarse_waypoints_dy, dist_inc,
+//                                                         num_interpolation_points);
+//
+//  }
+
+  void Map::update_local_waypoints(Position pt, int wp_behind, int wp_ahead){
     auto num_waypoints = this->waypoints_x.size();
     int next_waypoint_index = this->NextWaypoint(pt , this->waypoints_x, this->waypoints_y);
     vector<double> coarse_waypoints_s, coarse_waypoints_x, coarse_waypoints_y,
@@ -415,10 +462,7 @@ namespace utils {
     for (int i = -wp_behind; i < wp_ahead; i++) {
       // for smooting, take so many previous and so many subsequent waypoints
       auto idx = (next_waypoint_index + i) % num_waypoints;
-      if (idx < 0) {
-        // correct for wrap
-        idx += num_waypoints;
-      }
+
       // correct for wrap in s for spline interpolation (must be continuous)
       double current_s = this->waypoints_s[idx];
       double base_s = this->waypoints_s[next_waypoint_index];
