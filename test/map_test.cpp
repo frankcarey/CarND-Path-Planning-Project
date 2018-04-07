@@ -44,12 +44,12 @@ TEST_F(MapTest, ClosestWaypoint) {
 
   // Test that the coords for way point 8 give 8 as the closest.
   Position pos_wp_8{1025.03, 1157.81, 0};
-  int closest_wp = trackMap.ClosestWaypoint(pos_wp_8);
+  int closest_wp = trackMap.ClosestWaypoint(pos_wp_8, trackMap.waypoints_x, trackMap.waypoints_y);
   EXPECT_EQ(closest_wp, 8);
 
   // Test that the starting position is closest to wp 4.
   Position pos_start{909.48, 1128.67, 0};
-  closest_wp = trackMap.ClosestWaypoint(pos_start);
+  closest_wp = trackMap.ClosestWaypoint(pos_start, trackMap.waypoints_x, trackMap.waypoints_y);
   EXPECT_EQ(closest_wp, 4);
   
 }

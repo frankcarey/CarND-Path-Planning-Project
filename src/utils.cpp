@@ -287,7 +287,7 @@ namespace utils {
       wp_s = &waypoints_s;
       wp_x = &waypoints_x;
       wp_y = &waypoints_y;
-      next_wp = this->NextWaypoint(pt, (*wp_s), (*wp_y));
+      next_wp = this->NextWaypoint(pt, (*wp_x), (*wp_y));
     }
 
     int prev_wp;
@@ -319,18 +319,7 @@ namespace utils {
       frenet_d *= -1;
     }
 
-    // calculate s value
-    double frenet_s = 0;
-    for (int i = 0; i < prev_wp; i++) {
-      frenet_s += distance(
-          (*wp_x)[i],
-          (*wp_y)[i],
-          (*wp_x)[i + 1],
-          (*wp_y)[i + 1]
-      );
-    }
-
-    frenet_s += distance(0, 0, proj_x, proj_y);
+    double frenet_s = (*wp_s)[prev_wp] + distance(0, 0, proj_x, proj_y);
 
     return {frenet_s, frenet_d};
 
