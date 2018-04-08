@@ -220,18 +220,17 @@ namespace vehicle {
       FrenetPos car_ahead_frenet= this->trackMap->getFrenet(car_ahead.position());
 
       // There is also a car behind.
-      if (car_behind_id) {
-        Vehicle car_behind = other_vehicle_predictions[car_behind_id][0];
-        new_v = car_behind.v(); //must travel at the speed of traffic, regardless of preferred buffer
-      }
-      // There is also no car behind.
-      else {
+//      if (car_behind_id) {
+//        Vehicle car_behind = other_vehicle_predictions[car_behind_id][0];
+//        new_v = car_behind.v(); //must travel at the speed of traffic, regardless of preferred buffer
+//      }
+//      // There is also no car behind.
+//      else {
         // TODO: This isn't right I think.. How is max velocity being calculated?
          double max_velocity_in_front =
-             (car_ahead_frenet.s - car_frenet.s - this->preferred_buffer)
-             + car_ahead.v() - 0.5 * (vehicle.a());
+             (car_ahead_frenet.s - car_frenet.s - this->preferred_buffer) + car_ahead.v();
         new_v = min(max_velocity_in_front, min(max_velocity_accel_limit, target_velocity));
-      }
+      //}
     // There is no car ahead.
     } else {
       new_v = min(max_velocity_accel_limit, target_velocity);
@@ -289,15 +288,13 @@ namespace vehicle {
 
     cout << "\nKeep lane\n";
 
-    double timedelta = 1.;
-    double steps = 4;
+    double timedelta = .02;
+    double steps = 50;
     //vector<Vehicle> trajectory{this->vehicle.clone()};
     vector<Vehicle> trajectory{};
-    map<int, vector<Vehicle>> no_other_vehicles{};
 
-    for (int i=0; i<steps; i++) {
-      trajectory.push_back(this->get_lane_kinematic(this->vehicle, this->get_lane(), timedelta, this->trackMap->speed_limit(), no_other_vehicles));
-      timedelta += 1.;
+    for (int i=1; i<=steps; i++) {
+      trajectory.push_back(this->get_lane_kinematic(this->vehicle, this->get_lane(), timedelta*i, this->trackMap->speed_limit(), other_vehicle_predictions));
     }
 
     return trajectory;

@@ -27,9 +27,9 @@ int main() {
   string map_file = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
-  const double MAX_LEGAL_MPH = 5; // in MPH! TODO this is actually 50.
+  const double MAX_LEGAL_MPH = 50; // in MPH! TODO this is actually 50.
   const int NUMBER_OF_LANES = 3;
-  const double MAX_ACCELERATION = 1; // in meters per second.
+  const double MAX_ACCELERATION = 1; // in meters per second squared
 
 
 
