@@ -463,7 +463,7 @@ namespace vehicle {
     d_spline.set_points(time_way_pts, d_way_pts);
     v_spline.set_points(time_way_pts, v_way_pts);
 
-    const double total_time = 1;
+    const double total_time = 3;
     const double time_step_size = 0.02; // in seconds.
     double time_left = total_time - (this->trajectory.size() * 0.02);
 

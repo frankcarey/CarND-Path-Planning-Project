@@ -84,6 +84,8 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
+          auto planner = PathPlanner();
+
           // j[1] is the data JSON object
           // Main car's localization Data
           cout << "simulator| x: " << x << " y:" << y << " s: " << s << " d: " << d << " deg: " << yaw_deg << " rad: "
@@ -151,16 +153,6 @@ int main() {
               other_vehicle_predictions[other_vehicle.id()] = carCtl.generate_predictions(3, other_vehicle);
             }
 
-            // Choose the next state based on the trajectories of the other cars.
-            //std::pair<fsm::STATE, vector<Vehicle>> best_state_path = planner.choose_next_state(future_carCtl,
-            // other_vehicle_predictions);
-
-            //carCtl.fsm->state = best_state_path.first;
-
-            //cout << best_state_path.first << "\n";
-
-            //carCtl.extend_trajectory(best_state_path.second);
-
             FrenetPos lastF;
             Position lastPosXY;
 
@@ -193,43 +185,60 @@ int main() {
               next_y_vals.push_back(j[1]["previous_path_y"][i]);
             }
 
-            // Stay in lane 1 with a target velocity of 1 m/s and a time delta of 1s.
-            //Vehicle new_vpt = carCtl.get_lane_kinematic(1, 1., 1., other_vehicle_predictions);
-
-
             if (generate_path_size > 25) {
+              // PHASE 1
               // Just stupidly drive forward at 11MPH.
-  //            for (int i = 1; i <= generate_path_size; i++) {
-  //              lastF.s += .1;
-  //              cout << "new s: " << lastF.s << "\n";
-  //              Position posXY = carCtl.trackMap->getXY(lastF);
-  //              cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
-  //              double dist = distance(posXY.x, posXY.y, lastPosXY.x, lastPosXY.y);
-  //
-  //              next_x_vals.push_back(posXY.x);
-  //              next_y_vals.push_back(posXY.y);
-  //            }
+              //            for (int i = 1; i <= generate_path_size; i++) {
+              //              lastF.s += .1;
+              //              cout << "new s: " << lastF.s << "\n";
+              //              Position posXY = carCtl.trackMap->getXY(lastF);
+              //              cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
+              //              double dist = distance(posXY.x, posXY.y, lastPosXY.x, lastPosXY.y);
+              //
+              //              next_x_vals.push_back(posXY.x);
+              //              next_y_vals.push_back(posXY.y);
+              //            }
               // Use the proper trajectory generator.
 
-              Vehicle new_vpt;
-              //other_vehicle_predictions = {};
-              double last_s = -1;
-              for (int i = 1; i <= generate_path_size; i++) {
-                new_vpt = carCtl.get_lane_kinematic(carCtl.last_path_vehicle, 1, i/50., 50., other_vehicle_predictions);
-                auto new_f = carCtl.trackMap->getFrenet(new_vpt.position());
-                if (last_s > 0 && last_s > new_f.s) {
-                  cout << "ERROR\n";
-                  continue;
-                }
-                last_s = new_f.s;
-                cout << i << "-----------\n";
-                cout << "new s: " << new_f.s << "new d: " << new_f.d <<"\n";
-                cout << "new_x: " << new_vpt.x() << " new_y: " << new_vpt.y() << " new_yaw:" << new_vpt.yaw() << "\n";
-                cout << "new_v: " << new_vpt.v() << " new_a: " << new_vpt.a() << "\n";
-                next_x_vals.emplace_back(new_vpt.x());
-                next_y_vals.emplace_back(new_vpt.y());
+              // PHASE 2
+//              Vehicle new_vpt;
+//              //other_vehicle_predictions = {};
+//              double last_s = -1;
+//              for (int i = 1; i <= generate_path_size; i++) {
+//                new_vpt = carCtl.get_lane_kinematic(carCtl.last_path_vehicle, 1, i/50., 50., other_vehicle_predictions);
+//                auto new_f = carCtl.trackMap->getFrenet(new_vpt.position());
+//                if (last_s > 0 && last_s > new_f.s) {
+//                  cout << "ERROR\n";
+//                  continue;
+//                }
+//                last_s = new_f.s;
+//                cout << i << "-----------\n";
+//                cout << "new s: " << new_f.s << "new d: " << new_f.d <<"\n";
+//                cout << "new_x: " << new_vpt.x() << " new_y: " << new_vpt.y() << " new_yaw:" << new_vpt.yaw() << "\n";
+//                cout << "new_v: " << new_vpt.v() << " new_a: " << new_vpt.a() << "\n";
+//                next_x_vals.emplace_back(new_vpt.x());
+//                next_y_vals.emplace_back(new_vpt.y());
+//              }
+//              carCtl.last_path_vehicle = new_vpt;
+//            }
+              // Choose the next state based on the trajectories of the other cars.
+              VehicleController lastCarCtl{carCtl.last_path_vehicle, carCtl.fsm, carCtl.trackMap};
+              lastCarCtl.vehicle = carCtl.last_path_vehicle;
+
+              std::pair<fsm::STATE, vector<Vehicle>> best_state_path =
+                  planner.choose_next_state(lastCarCtl, other_vehicle_predictions);
+
+              lastCarCtl.fsm->state = best_state_path.first;
+
+              cout << best_state_path.first << "\n";
+
+              //lastCarCtl.extend_trajectory(best_state_path.second);
+              for (Vehicle &v: best_state_path.second) {
+                next_x_vals.push_back(v.x());
+                next_y_vals.push_back(v.y());
+                cout << "new_x: " << v.x() << " new_y: " << v.y() << " new_yaw:" << v.yaw() << "\n";
+                carCtl.last_path_vehicle = v;
               }
-              carCtl.last_path_vehicle = new_vpt;
             }
           }
 
