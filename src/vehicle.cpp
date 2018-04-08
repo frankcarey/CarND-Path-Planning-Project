@@ -132,6 +132,7 @@ namespace vehicle {
 
   VehicleController::VehicleController(Vehicle vehicle, VehicleFSM *fsm, Map *trackMap) {
     this->vehicle = vehicle;
+    this->last_path_vehicle = vehicle;
     this->fsm = fsm;
     this->trackMap = trackMap;
     this->max_acceleration = 8;
@@ -196,19 +197,19 @@ namespace vehicle {
     return trajectory;
   }
 
-  Vehicle VehicleController::get_lane_kinematic(int lane, double timedelta, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions) {
+  Vehicle VehicleController::get_lane_kinematic(Vehicle vehicle, int lane, double timedelta, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions) {
     /*
     Gets next timestep kinematics (position, velocity, acceleration)
     for a given lane. Tries to choose the maximum velocity and acceleration,
     given other vehicle positions and accel/velocity constraints.
     */
 
-    //TODO: Get the actual acceleration limit based on a timedetla.
-    double max_velocity_accel_limit = (this->max_acceleration * timedelta) + this->vehicle.v();
+    //TODO: Get the actual acceleration limit based on a timedelta.
+    double max_velocity_accel_limit = (this->max_acceleration * timedelta) + vehicle.v();
 
     int car_ahead_id = this->get_vehicle_ahead(lane, other_vehicle_predictions);
     int car_behind_id = this->get_vehicle_ahead(lane, other_vehicle_predictions);
-    FrenetPos car_frenet = this->trackMap->getFrenet(this->vehicle.position());
+    FrenetPos car_frenet = this->trackMap->getFrenet(vehicle.position());
 
     double new_v;
     double new_a;
@@ -228,7 +229,7 @@ namespace vehicle {
         // TODO: This isn't right I think.. How is max velocity being calculated?
          double max_velocity_in_front =
              (car_ahead_frenet.s - car_frenet.s - this->preferred_buffer)
-             + car_ahead.v() - 0.5 * (this->vehicle.a());
+             + car_ahead.v() - 0.5 * (vehicle.a());
         new_v = min(max_velocity_in_front, min(max_velocity_accel_limit, target_velocity));
       }
     // There is no car ahead.
@@ -237,18 +238,18 @@ namespace vehicle {
     }
 
     // Get the new acceleration and postion based on the new velocity.
-    new_a = new_v - this->vehicle.v() / timedelta; //Equation: (v_1 - v_0)/t = acceleration
+    new_a = (new_v - vehicle.v()) / timedelta; //Equation: (v_1 - v_0)/t = acceleration
     // Get new position after timedelta.
     //car_frenet.s = car_frenet.s + (this->vehicle.v() * timedelta) + (0.5 * new_a * timedelta * timedelta);
     car_frenet.s = car_frenet.s + (new_v * timedelta);
 
     // Create the kinematic as a new Vehicle;
     Position new_pos = this->trackMap->getXY(car_frenet);
-    int vid = this->vehicle.id();
+    int vid = vehicle.id();
     Vehicle lane_kinematic{vid, new_pos};
     lane_kinematic.v(new_v);
     lane_kinematic.a(new_a);
-    lane_kinematic.time(this->vehicle.time());
+    lane_kinematic.time(vehicle.time());
 
     lane_kinematic.addSeconds(timedelta);
 
@@ -295,7 +296,7 @@ namespace vehicle {
     map<int, vector<Vehicle>> no_other_vehicles{};
 
     for (int i=0; i<steps; i++) {
-      trajectory.push_back(this->get_lane_kinematic(this->get_lane(), timedelta, this->trackMap->speed_limit(), no_other_vehicles));
+      trajectory.push_back(this->get_lane_kinematic(this->vehicle, this->get_lane(), timedelta, this->trackMap->speed_limit(), no_other_vehicles));
       timedelta += 1.;
     }
 
@@ -309,12 +310,12 @@ namespace vehicle {
     // First trajectory item
     vector<Vehicle> trajectory = {vehicle.clone()};
     // First get the next best trajectory for the current lane.
-    Vehicle best_curr_lane_kinematic = get_lane_kinematic(this->get_lane(), timedelta, INFINITY, other_vehicle_predictions);
+    Vehicle best_curr_lane_kinematic = get_lane_kinematic(this->vehicle, this->get_lane(), timedelta, INFINITY, other_vehicle_predictions);
 
     int car_behind_index = this->get_vehicle_behind(this->get_lane(), other_vehicle_predictions);
 
     if (! car_behind_index){
-      Vehicle best_new_lane_kinematic = get_lane_kinematic(new_lane, timedelta, INFINITY, other_vehicle_predictions);
+      Vehicle best_new_lane_kinematic = get_lane_kinematic(this->vehicle, new_lane, timedelta, INFINITY, other_vehicle_predictions);
       //Choose kinematics with lowest velocity. // TODO WHY?
       if (best_new_lane_kinematic.v() < best_curr_lane_kinematic.v()) {
         trajectory.emplace_back(best_new_lane_kinematic);
@@ -339,7 +340,7 @@ namespace vehicle {
       return trajectory;
     }
     trajectory.emplace_back(this->vehicle.clone());
-    Vehicle kinematic = get_lane_kinematic(new_lane, timedelta, INFINITY, other_vehicle_predictions);
+    Vehicle kinematic = get_lane_kinematic(this->vehicle, new_lane, timedelta, INFINITY, other_vehicle_predictions);
     trajectory.emplace_back(kinematic);
     return trajectory;
   }

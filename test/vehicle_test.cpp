@@ -37,7 +37,7 @@ TEST_F(VehicleControllerTest, getLaneKinematic)
   map<int, vector<Vehicle>> other_vehicles{};
 
   // Stay in lane 1 with a target velocity of 1 m/s and a time delta of 1s.
-  Vehicle new_vpt = carCtl.get_lane_kinematic(1, 1., 1., other_vehicles);
+  Vehicle new_vpt = carCtl.get_lane_kinematic(curr_vpt, 1, 1., 1., other_vehicles);
 
   // Since we're starting at 0 m/s and want to end a 1 m/s,
   // We'll only travel 0.5 m in the first second. This yaw means it's all x.

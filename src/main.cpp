@@ -81,30 +81,37 @@ int main() {
           double s = j[1]["s"];
           double d = j[1]["d"];
 
+          vector<double> next_x_vals;
+          vector<double> next_y_vals;
+
           // j[1] is the data JSON object
           // Main car's localization Data
-          cout << "simulator| x: " << x << " y:" << y <<  " s: " << s << " d: " << d << " deg: " << yaw_deg << " rad: " << yaw_radians << "\n";
+          cout << "simulator| x: " << x << " y:" << y << " s: " << s << " d: " << d << " deg: " << yaw_deg << " rad: "
+               << yaw_radians << "\n";
 
           carCtl.update(x, y, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
-          carCtl.trackMap->update_local_waypoints(carCtl.vehicle.position(), 2, 2);
+          // TODO: uncommment this and fix the interpolated waypoints. they seem to break near
+          // new waypoints, probably because the map is wrong?
+          //carCtl.trackMap->update_local_waypoints(carCtl.vehicle.position(), 2, 2);
 
-
-          cout << "post-update| x: " << carCtl.vehicle.x() << " y:" << carCtl.vehicle.y() << " yaw:" << carCtl.vehicle.yaw();
+          cout << "post-update| x: " << carCtl.vehicle.x() << " y:" << carCtl.vehicle.y() << " yaw:"
+               << carCtl.vehicle.yaw() << "\n";
           FrenetPos carF = carCtl.trackMap->getFrenet(carCtl.vehicle.position());
-          cout << "post-update-frenet| s: " << carF.s << " d:" <<carF.d;
+          cout << "post-update-frenet| s: " << carF.s << " d:" << carF.d << "\n";
           Position carPos = carCtl.trackMap->getXY(carF);
-          cout << "post-update| x: " << carPos.x << " y:" << carPos.y  << " yaw:" << carPos.yaw;
+          cout << "post-update| x: " << carPos.x << " y:" << carPos.y << " yaw:" << carPos.yaw << "\n";
 
           // Just return so we get a previous state.
-          if(!initialized) {
+          if (!initialized) {
+            carCtl.last_path_vehicle = carCtl.vehicle.clone();
             initialized = true;
           } else {
 
-            // TODO: These values are actually shit! There seem to be a lot of complaints on the forums
+            // TODO: These s and d values are actually shit! There seem to be a lot of complaints on the forums
             // See https://discussions.udacity.com/t/erratic-end-path-s/348927
             // Previous path's end s and d values
-            //double end_path_s = j[1]["end_path_s"];
-            //double end_path_d = j[1]["end_path_d"];
+//            double end_path_s = j[1]["end_path_s"];
+//            double end_path_d = j[1]["end_path_d"];
 
 //            auto future_car = carCtl.vehicle.clone();
 //            auto future_carCtl = VehicleController(future_car, carCtl.fsm, carCtl.trackMap);
@@ -112,13 +119,13 @@ int main() {
 //            if (end_path_s) {
 //              cout << "end_path= s:" << end_path_s << " d: " << end_path_d << "\n";
 //              Position end_path = carCtl.trackMap->getXY(FrenetPos(end_path_s, end_path_d));
-//              cout << "end_path= x:" << end_path.x << " y: " << end_path.y << " yaw: " << end_path.yaw <<"\n";
+//              cout << "end_path= x:" << end_path.x << " y: " << end_path.y << " yaw: " << end_path.yaw << "\n";
 //
 //
 //              future_carCtl.vehicle.position(future_carCtl.trackMap->getXY(FrenetPos(end_path_s, end_path_d)));
 //            }
-
-            auto planner = PathPlanner();
+//
+//            auto planner = PathPlanner();
 
             // Sensor Fusion Data, a list of all other cars on the same side of the road.
             //["sensor_fusion"] A 2d vector of cars and then that car's [
@@ -145,66 +152,86 @@ int main() {
             }
 
             // Choose the next state based on the trajectories of the other cars.
-            //std::pair<fsm::STATE, vector<Vehicle>> best_state_path = planner.choose_next_state(future_carCtl, other_vehicle_predictions);
+            //std::pair<fsm::STATE, vector<Vehicle>> best_state_path = planner.choose_next_state(future_carCtl,
+            // other_vehicle_predictions);
 
             //carCtl.fsm->state = best_state_path.first;
 
             //cout << best_state_path.first << "\n";
 
             //carCtl.extend_trajectory(best_state_path.second);
-          }
 
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
-          FrenetPos lastF;
-          Position lastPosXY;
-
-          //exit(0);
-          int prev_path_size = j[1]["previous_path_x"].size();
-          cout << "prev_path_size: " << prev_path_size << "\n";
-          int generate_path_size = 50 - prev_path_size;
-          cout << "generate_path_size: " << generate_path_size << "\n";
-          if (prev_path_size <= 0) {
-            lastPosXY = carCtl.vehicle.position();
-          } else {
-            lastPosXY = Position{
-                j[1]["previous_path_x"][prev_path_size - 1],
-                j[1]["previous_path_y"][prev_path_size - 1],
-                // TODO using this yaw may not be accurate enough!
-                carCtl.vehicle.yaw()
-            };
-          }
-          cout << "last_x: " << lastPosXY.x << " last y: " << lastPosXY.y << "\n";
-          lastF = carCtl.trackMap->getFrenet(lastPosXY);
-          cout << "last_s: " << lastF.s << " last d: " << lastF.d << "\n";
-          int closest_wp = carCtl.trackMap->ClosestWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,carCtl.trackMap->waypoints_y);
-          int next_wp = carCtl.trackMap->NextWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,carCtl.trackMap->waypoints_y);
-          cout << "closest_wp: " << closest_wp << " next_wp: " << next_wp << "\n";
+            FrenetPos lastF;
+            Position lastPosXY;
 
 
-          for (int i=0; i<prev_path_size; i++) {
-            next_x_vals.push_back(j[1]["previous_path_x"][i]);
-            next_y_vals.push_back(j[1]["previous_path_y"][i]);
-          }
-          if (generate_path_size > 25) {
-            for (int i = 1; i <= generate_path_size; i++) {
-              lastF.s += .1;
-              cout << "new s: " << lastF.s << "\n";
-              Position posXY = carCtl.trackMap->getXY(lastF);
-              cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
-              double dist = distance(posXY.x, posXY.y, lastPosXY.x, lastPosXY.y);
+            int prev_path_size = j[1]["previous_path_x"].size();
+            cout << "prev_path_size: " << prev_path_size << "\n";
+            int generate_path_size = 200 - prev_path_size;
+            cout << "generate_path_size: " << generate_path_size << "\n";
+            if (prev_path_size <= 0) {
+              lastPosXY = carCtl.vehicle.position();
+            } else {
+              lastPosXY = Position{
+                  j[1]["previous_path_x"][prev_path_size - 1],
+                  j[1]["previous_path_y"][prev_path_size - 1],
+                  // TODO using this yaw may not be accurate enough!
+                  carCtl.vehicle.yaw()
+              };
+            }
+            cout << "last_x: " << lastPosXY.x << " last y: " << lastPosXY.y << " last yaw: " << lastPosXY.yaw << "\n";
+            lastF = carCtl.trackMap->getFrenet(lastPosXY);
+            cout << "last_s: " << lastF.s << " last d: " << lastF.d << "\n";
+            int closest_wp = carCtl.trackMap->ClosestWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,
+                                                              carCtl.trackMap->waypoints_y);
+            int next_wp = carCtl.trackMap->NextWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,
+                                                        carCtl.trackMap->waypoints_y);
+            cout << "closest_wp: " << closest_wp << " next_wp: " << next_wp << "\n";
 
-              next_x_vals.push_back(posXY.x);
-              next_y_vals.push_back(posXY.y);
+            for (int i = 0; i < prev_path_size; i++) {
+              next_x_vals.push_back(j[1]["previous_path_x"][i]);
+              next_y_vals.push_back(j[1]["previous_path_y"][i]);
+            }
+
+            // Stay in lane 1 with a target velocity of 1 m/s and a time delta of 1s.
+            //Vehicle new_vpt = carCtl.get_lane_kinematic(1, 1., 1., other_vehicle_predictions);
+
+
+            if (generate_path_size > 25) {
+              // Just stupidly drive forward at 11MPH.
+  //            for (int i = 1; i <= generate_path_size; i++) {
+  //              lastF.s += .1;
+  //              cout << "new s: " << lastF.s << "\n";
+  //              Position posXY = carCtl.trackMap->getXY(lastF);
+  //              cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
+  //              double dist = distance(posXY.x, posXY.y, lastPosXY.x, lastPosXY.y);
+  //
+  //              next_x_vals.push_back(posXY.x);
+  //              next_y_vals.push_back(posXY.y);
+  //            }
+              // Use the proper trajectory generator.
+
+              Vehicle new_vpt;
+              other_vehicle_predictions = {};
+              double last_s = -1;
+              for (int i = 1; i <= generate_path_size; i++) {
+                new_vpt = carCtl.get_lane_kinematic(carCtl.last_path_vehicle, 1, i/50., 50., other_vehicle_predictions);
+                auto new_f = carCtl.trackMap->getFrenet(new_vpt.position());
+                if (last_s > 0 && last_s > new_f.s) {
+                  cout << "ERROR\n";
+                  continue;
+                }
+                last_s = new_f.s;
+                cout << i << "-----------\n";
+                cout << "new s: " << new_f.s << "new d: " << new_f.d <<"\n";
+                cout << "new_x: " << new_vpt.x() << " new_y: " << new_vpt.y() << " new_yaw:" << new_vpt.yaw() << "\n";
+                cout << "new_v: " << new_vpt.v() << " new_a: " << new_vpt.a() << "\n";
+                next_x_vals.emplace_back(new_vpt.x());
+                next_y_vals.emplace_back(new_vpt.y());
+              }
+              carCtl.last_path_vehicle = new_vpt;
             }
           }
-
-
-
-//          for (Vehicle &point: carCtl.trajectory) {
-//            next_x_vals.emplace_back(point.x());
-//            next_y_vals.emplace_back(point.y());
-//          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;

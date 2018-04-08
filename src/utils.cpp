@@ -319,7 +319,9 @@ namespace utils {
     double centerToRef = distance(center_x, center_y, proj_x, proj_y);
 
     if (centerToPos <= centerToRef) {
-      frenet_d *= -1;
+      // todo: this seems broken!
+      //frenet_d *= -1;
+      cout << "negative frenet_d??";
     }
 
     // calculate s value by adding the s projection to the previous waypoint's s.
@@ -483,13 +485,16 @@ namespace utils {
     // interpolation parameters
     double dist_inc = 0.5;
     auto num_interpolation_points = (int) ((coarse_waypoints_s[coarse_waypoints_s.size() - 1] - coarse_waypoints_s[0]) / dist_inc);
+    cout << "num_interpolation_points: " << num_interpolation_points << "\n";
     vector<double> interpolated_waypoints_s, interpolated_waypoints_x, interpolated_waypoints_y,
         interpolated_waypoints_dx, interpolated_waypoints_dy;
     // interpolated s is simply...
-    interpolated_waypoints_s.push_back(coarse_waypoints_s[0]);
-    for (int i = 1; i < num_interpolation_points; i++) {
-      this->interpolated_waypoints_s.push_back(coarse_waypoints_s[0] + i * dist_inc);
+    for (int i = 0; i < num_interpolation_points; i++) {
+      interpolated_waypoints_s.push_back(coarse_waypoints_s[0] + i * dist_inc);
     }
+
+    this->interpolated_waypoints_s = interpolated_waypoints_s;
+
     this->interpolated_waypoints_x = interpolate_points(coarse_waypoints_s, coarse_waypoints_x, dist_inc,
                                                   num_interpolation_points);
     this->interpolated_waypoints_y = interpolate_points(coarse_waypoints_s, coarse_waypoints_y, dist_inc,

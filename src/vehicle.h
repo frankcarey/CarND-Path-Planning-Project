@@ -94,7 +94,7 @@ namespace vehicle {
 
     Vehicle vehicle;
 
-    //Vehicle last_vehicle;
+    Vehicle last_path_vehicle;
 
     Map *trackMap;
 
@@ -116,7 +116,7 @@ namespace vehicle {
 
     vector<Vehicle> generate_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    Vehicle get_lane_kinematic(int lane, double timedelta, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions);
+    Vehicle get_lane_kinematic(Vehicle vehicle, int lane, double timedelta, double target_velocity, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
     int get_vehicle_behind(int lane, map<int, vector<Vehicle>> &other_vehicle_predictions);
 

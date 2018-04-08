@@ -99,4 +99,11 @@ TEST_F(MapTest, getFrenet) {
   EXPECT_NEAR(someFrenet.s, 145.434, 0.001);
   EXPECT_NEAR(someFrenet.d, 6.1648, 0.003);
 
+
+  Position trickyPos{2275.37, 2311.45, 1.36312};
+  FrenetPos trickyFrenet = trackMap.getFrenet(trickyPos);
+
+  EXPECT_NEAR(trickyFrenet.s, 2389.84, 0.001);
+  EXPECT_NEAR(trickyFrenet.d, 4.97685, 0.003);
+
 }
