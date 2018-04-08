@@ -141,7 +141,6 @@ namespace vehicle {
   }
 
   int VehicleController::get_lane() {
-    return 1; //TODO: Don't hardcode this.
     return this->trackMap->getXYLane(this->vehicle.position());
   }
 
@@ -240,7 +239,9 @@ namespace vehicle {
     new_a = (new_v - vehicle.v()) / timedelta; //Equation: (v_1 - v_0)/t = acceleration
     // Get new position after timedelta.
     //car_frenet.s = car_frenet.s + (this->vehicle.v() * timedelta) + (0.5 * new_a * timedelta * timedelta);
+    double new_d = lane * 4 + 2;
     car_frenet.s = car_frenet.s + (new_v * timedelta);
+    car_frenet.d = car_frenet.d + (car_frenet.d - new_d) * timedelta;
 
     // Create the kinematic as a new Vehicle;
     Position new_pos = this->trackMap->getXY(car_frenet);
@@ -327,7 +328,9 @@ namespace vehicle {
     /*
     Generate a lane change trajectory.
     */
-    double timedelta = 1;
+    double timedelta = .02;
+    double steps = 50;
+
     int new_lane = this->get_lane() + LANE_DIRECTION.at(state);
     // First trajectory item
     vector<Vehicle> trajectory = {};
@@ -336,9 +339,9 @@ namespace vehicle {
     if (! this->lane_opening_exists(new_lane, other_vehicle_predictions)) {
       return trajectory;
     }
-    trajectory.emplace_back(this->vehicle.clone());
-    Vehicle kinematic = get_lane_kinematic(this->vehicle, new_lane, timedelta, INFINITY, other_vehicle_predictions);
-    trajectory.emplace_back(kinematic);
+    for (int i=1; i<=steps; i++) {
+      trajectory.push_back(this->get_lane_kinematic(this->vehicle, new_lane, timedelta*i, this->trackMap->speed_limit(), other_vehicle_predictions));
+    }
     return trajectory;
   }
 

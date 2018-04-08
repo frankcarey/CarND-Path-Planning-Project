@@ -32,11 +32,9 @@ namespace fsm {
   class VehicleFSM {
   public:
     STATE state;
-    Map trackMap;
+    Map *trackMap;
 
-    VehicleFSM(STATE state, Map &trackMap);
-
-    VehicleFSM();
+    VehicleFSM(STATE state, Map *trackMap);
 
     vector<STATE> successor_states(int lane);
   };

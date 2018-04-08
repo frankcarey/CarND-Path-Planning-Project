@@ -400,7 +400,7 @@ namespace utils {
 
   int Map::getFrenetLane(FrenetPos frenet) {
     // assumes 0 is the left most lane.
-    return (int) round(frenet.d / 4 - 0.5);
+    return (int) round((frenet.d - 2) / 4);
   }
 
   Position Map::position_at(Position pos, double timedelta) {

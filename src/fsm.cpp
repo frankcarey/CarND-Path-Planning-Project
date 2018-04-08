@@ -11,12 +11,9 @@ using namespace utils;
 
 namespace fsm {
 
-  VehicleFSM::VehicleFSM() {
-    this->state = STATE::KL;
-  };
-
-  VehicleFSM::VehicleFSM(STATE state, Map &trackMap): trackMap(trackMap) {
+  VehicleFSM::VehicleFSM(STATE state, Map *trackMap) {
     this->state = state;
+    this->trackMap = trackMap;
   }
 
   vector<STATE> VehicleFSM::successor_states(int lane) {
@@ -28,23 +25,12 @@ namespace fsm {
     vector <STATE> states;
 
     states.emplace_back(KL);
-    return states;
-    //TODO: Fix this.
-    if (state == KL) {
-      states.emplace_back(PLCL);
-      states.emplace_back(PLCR);
-    } else if (state == PLCL) {
-      if (this->trackMap.is_lane_available(lane-1)) {
-        states.emplace_back(PLCL);
-        states.emplace_back(LCL);
-      }
-    } else if (state == PLCR) {
-      if (this->trackMap.is_lane_available(lane+1)) {
-        states.emplace_back(PLCR);
-        states.emplace_back(LCR);
-      }
+    if (this->trackMap->is_lane_available(lane-1)) {
+      states.emplace_back(LCL);
     }
-    //If state is "LCL" or "LCR", then just return "KL"
+    if (this->trackMap->is_lane_available(lane+1)) {
+      states.emplace_back(LCR);
+    }
     return states;
   }
 

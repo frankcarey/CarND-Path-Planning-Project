@@ -21,7 +21,8 @@ std::pair<fsm::STATE, vector<Vehicle>> PathPlanner::choose_next_state(VehicleCon
   OUTPUT: The the best (lowest cost) trajectory corresponding to the next ego vehicle state.
 
   */
-  vector<fsm::STATE> states = ctrl.fsm->successor_states(ctrl.get_lane());
+  int curr_lane = ctrl.get_lane();
+  vector<fsm::STATE> states = ctrl.fsm->successor_states(curr_lane);
   double cost;
   vector<double> costs;
   vector<fsm::STATE> final_states;
@@ -30,7 +31,8 @@ std::pair<fsm::STATE, vector<Vehicle>> PathPlanner::choose_next_state(VehicleCon
   for (fsm::STATE &state : states) {
     vector<Vehicle> candidate_trajectory = ctrl.generate_trajectory(state, other_vehicle_predictions);
     if (!candidate_trajectory.empty()) {
-      cost = this->calculate_cost(candidate_trajectory, other_vehicle_predictions);
+      cout << "state cost for: " << state << "\n";
+      cost = this->calculate_cost(ctrl, candidate_trajectory, other_vehicle_predictions);
       costs.push_back(cost);
       final_trajectories.push_back(candidate_trajectory);
       final_states.push_back(state);
@@ -44,23 +46,26 @@ std::pair<fsm::STATE, vector<Vehicle>> PathPlanner::choose_next_state(VehicleCon
 }
 
 
-double PathPlanner::calculate_cost(vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions) {
+double PathPlanner::calculate_cost(VehicleController &ctrl, vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions) {
   /*
   Sum weighted cost functions to get total cost for trajectory.
   */
   double cost = 0.0;
 
-//    //Add additional cost functions here.
-//    vector<function<double(const VehicleController &, const vector<VehicleController> &,
-//                           const map<int, vector<VehicleController>> &, map<string, double> &)>> cf_list = {
-//        goal_distance_cost, inefficiency_cost};
-//    vector<double> weight_list = {REACH_GOAL, EFFICIENCY};
-//
-//    for (int i = 0; i < cf_list.size(); i++) {
-//      double new_cost = weight_list[i] * cf_list[i](vehicle, trajectory, predictions, trajectory_data);
-//      cost += new_cost;
-//    }
+  cost += fabs(ctrl.trackMap->speed_limit() - candidate_trajectory.back().v());
 
+  // Make it change lanes..
+  int lane = ctrl.trackMap->getXYLane(candidate_trajectory.back().position());
+  cout << "lane: " << lane << " \n";
+  int car_ahead_id = ctrl.get_vehicle_ahead(lane, other_vehicle_predictions);
+  if(car_ahead_id > 0) {
+    Vehicle car_ahead = other_vehicle_predictions[car_ahead_id].back();
+    cost += fabs(ctrl.trackMap->speed_limit() - car_ahead.v());
+  }
+
+  cout << "\n";
+  cout << "cost: " << cost << "\n";
+  cout << "\n";
   return cost;
 }
 

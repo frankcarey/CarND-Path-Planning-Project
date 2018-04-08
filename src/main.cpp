@@ -37,7 +37,7 @@ int main() {
 
 
   Vehicle car{};
-  VehicleFSM fsm{};
+  VehicleFSM fsm{fsm::KL, &trackMap};
 
   //car.configure(road_data);
   VehicleController carCtl = VehicleController(car, &fsm, &trackMap);
@@ -159,7 +159,7 @@ int main() {
 
             int prev_path_size = j[1]["previous_path_x"].size();
             cout << "prev_path_size: " << prev_path_size << "\n";
-            int generate_path_size = 200 - prev_path_size;
+            int generate_path_size = 50 - prev_path_size;
             cout << "generate_path_size: " << generate_path_size << "\n";
             if (prev_path_size <= 0) {
               lastPosXY = carCtl.vehicle.position();
@@ -222,22 +222,25 @@ int main() {
 //              carCtl.last_path_vehicle = new_vpt;
 //            }
               // Choose the next state based on the trajectories of the other cars.
+
               VehicleController lastCarCtl{carCtl.last_path_vehicle, carCtl.fsm, carCtl.trackMap};
               lastCarCtl.vehicle = carCtl.last_path_vehicle;
 
-              std::pair<fsm::STATE, vector<Vehicle>> best_state_path =
-                  planner.choose_next_state(lastCarCtl, other_vehicle_predictions);
+              std::pair<fsm::STATE, vector<Vehicle>> best_state_path = planner.choose_next_state(lastCarCtl, other_vehicle_predictions);
 
               lastCarCtl.fsm->state = best_state_path.first;
 
-              cout << best_state_path.first << "\n";
+              cout << "<<<BEST STATE: " << best_state_path.first << "\n";
 
               //lastCarCtl.extend_trajectory(best_state_path.second);
-              for (Vehicle &v: best_state_path.second) {
-                next_x_vals.push_back(v.x());
-                next_y_vals.push_back(v.y());
-                cout << "new_x: " << v.x() << " new_y: " << v.y() << " new_yaw:" << v.yaw() << "\n";
-                carCtl.last_path_vehicle = v;
+              for (int i = 1; i <= generate_path_size; i++) {
+                if (i < best_state_path.second.size()) {
+                  Vehicle v = best_state_path.second[i];
+                  next_x_vals.push_back(best_state_path.second[i].x());
+                  next_y_vals.push_back(best_state_path.second[i].y());
+                  carCtl.last_path_vehicle = v;
+                  cout << "new_x: " << v.x() << " new_y: " << v.y() << " new_yaw:" << v.yaw() << "\n";
+                }
               }
             }
           }
