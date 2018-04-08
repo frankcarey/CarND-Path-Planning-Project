@@ -212,7 +212,7 @@ int main() {
               // Use the proper trajectory generator.
 
               Vehicle new_vpt;
-              other_vehicle_predictions = {};
+              //other_vehicle_predictions = {};
               double last_s = -1;
               for (int i = 1; i <= generate_path_size; i++) {
                 new_vpt = carCtl.get_lane_kinematic(carCtl.last_path_vehicle, 1, i/50., 50., other_vehicle_predictions);
