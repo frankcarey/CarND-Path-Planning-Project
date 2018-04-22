@@ -11,6 +11,7 @@
 #include <string>
 #include <cmath>
 #include "spline.h"
+#include "trajectory.h"
 
 using namespace std;
 
@@ -57,6 +58,8 @@ namespace utils {
 
     FrenetPos(double s, double d);
 
+    FrenetPos clone();
+
   };
 
   class Spline {
@@ -94,6 +97,8 @@ namespace utils {
 
     int ClosestWaypoint(Position pt, vector<double> wp_x, vector<double> wp_y);
 
+    vector<vector<double>> get_near_cars(double s, double speed, double time_horizon, vector<vector<double>> sensor_fusion);
+
     int NextWaypoint(Position pt, vector<double> wp_x, vector<double> wp_y);
 
     FrenetPos getFrenet(Position pt);
@@ -114,6 +119,9 @@ namespace utils {
 
     //Spline Map::getLocalSpline(Position pt, int n_points);
 
+    bool collision_test(Trajectory2D carTrajectory, vector<double> other_car, double time_limit);
+
+    double s_relative_to(double s, double relative_to);
   };
 
   constexpr double pi() { return M_PI; }
@@ -146,6 +154,8 @@ namespace utils {
     vector<double> x_list ;
     vector<double> y_list ;
   };
+
+  vector<double> parabolicGetXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
 
 }
 

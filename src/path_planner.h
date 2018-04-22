@@ -13,8 +13,12 @@ using namespace vehicle;
 class PathPlanner {
 public:
   PathPlanner();
-  std::pair<fsm::STATE, vector<Vehicle>> choose_next_state(VehicleController &ctrl, map<int, vector<Vehicle>> &other_vehicle_predictions);
-  double calculate_cost(VehicleController &ctrl, vector<Vehicle> &candidate_trajectory, std::map<int, vector<Vehicle>> &other_vehicle_predictions);
+  double calculate_cost(double speed_limit, Trajectory2D &trajectory);
+  vector<double> sPoly(vector<double> conds, double T);
+  vector<double> dPoly(vector<double> conds, double T);
+  vector<Trajectory2D> generate_trajectories(VehicleController carCtl, vector<double> conds_s, vector<double> conds_d,
+                                          double time_horizon, vector< vector<double> > & near_cars);
 
+  int minimal_cost_trajectory(vector<Trajectory2D> combSet);
 };
 #endif //PATH_PLANNING_PATH_PLANNER_H

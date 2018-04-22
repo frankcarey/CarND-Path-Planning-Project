@@ -6,8 +6,9 @@
 #include <thread>
 #include <vector>
 #include "json.hpp"
-#include "vehicle.h"
+#include "trajectory.h"
 #include "utils.h"
+#include "vehicle.h"
 #include "path_planner.h"
 
 
@@ -18,7 +19,6 @@ using namespace fsm;
 
 // for convenience
 using json = nlohmann::json;
-
 
 int main() {
   uWS::Hub h;
@@ -31,8 +31,6 @@ int main() {
   const int NUMBER_OF_LANES = 3;
   const double MAX_ACCELERATION = 1; // in meters per second squared
 
-
-
   utils::Map trackMap =  utils::Map(map_file, max_s, MAX_LEGAL_MPH, NUMBER_OF_LANES);
 
 
@@ -41,15 +39,14 @@ int main() {
 
   //car.configure(road_data);
   VehicleController carCtl = VehicleController(car, &fsm, &trackMap);
-  // TODO: Initialize this initial position in a better way.
-  //carCtl.vehicle = Vehicle(0, Position(909.47, 1128.67));
-  carCtl.max_acceleration = MAX_ACCELERATION;
 
-  bool initialized = false;
+  // Keep trajectories between iterations so we can use it
+  // to easily calculate our current position, velocity, and acceleration
+  // independently for s and d.
+  Trajectory sTrajectory; // trajectory along s
+  Trajectory dTrajectory; //trajectory along d
 
-  int counter = 0;
-
-  h.onMessage([&carCtl, &initialized, &counter](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
+  h.onMessage([&carCtl, &sTrajectory, &dTrajectory](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -66,9 +63,6 @@ int main() {
 
         if (event == "telemetry") {
 
-          counter += 1;
-          cout << "COUNTER :" << counter << "\n";
-
           json msgJson;
 
           //cout << j.dump() << " : JSON\n";
@@ -81,6 +75,7 @@ int main() {
           double s = j[1]["s"];
           double d = j[1]["d"];
 
+          // We'll return these values back to the simulator.
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
@@ -91,160 +86,89 @@ int main() {
           cout << "simulator| x: " << x << " y:" << y << " s: " << s << " d: " << d << " deg: " << yaw_deg << " rad: "
                << yaw_radians << "\n";
 
-          carCtl.update(x, y, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
-          // TODO: uncommment this and fix the interpolated waypoints. they seem to break near
-          // new waypoints, probably because the map is wrong?
-          //carCtl.trackMap->update_local_waypoints(carCtl.vehicle.position(), 2, 2);
+          carCtl.update(s, d, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
+          int path_steps_used = (carCtl.size_horizon - carCtl.prev_path_size);
 
-          cout << "post-update| x: " << carCtl.vehicle.x() << " y:" << carCtl.vehicle.y() << " yaw:"
-               << carCtl.vehicle.yaw() << "\n";
-          FrenetPos carF = carCtl.trackMap->getFrenet(carCtl.vehicle.position());
-          cout << "post-update-frenet| s: " << carF.s << " d:" << carF.d << "\n";
-          Position carPos = carCtl.trackMap->getXY(carF);
-          cout << "post-update| x: " << carPos.x << " y:" << carPos.y << " yaw:" << carPos.yaw << "\n";
+          int mct_idx; // index of the minimum cost trajectory
 
-          // Just return so we get a previous state.
-          if (!initialized) {
-            carCtl.last_path_vehicle = carCtl.vehicle.clone();
-            initialized = true;
-          } else {
-
-            // TODO: These s and d values are actually shit! There seem to be a lot of complaints on the forums
-            // See https://discussions.udacity.com/t/erratic-end-path-s/348927
-            // Previous path's end s and d values
-//            double end_path_s = j[1]["end_path_s"];
-//            double end_path_d = j[1]["end_path_d"];
-
-//            auto future_car = carCtl.vehicle.clone();
-//            auto future_carCtl = VehicleController(future_car, carCtl.fsm, carCtl.trackMap);
-//
-//            if (end_path_s) {
-//              cout << "end_path= s:" << end_path_s << " d: " << end_path_d << "\n";
-//              Position end_path = carCtl.trackMap->getXY(FrenetPos(end_path_s, end_path_d));
-//              cout << "end_path= x:" << end_path.x << " y: " << end_path.y << " yaw: " << end_path.yaw << "\n";
-//
-//
-//              future_carCtl.vehicle.position(future_carCtl.trackMap->getXY(FrenetPos(end_path_s, end_path_d)));
-//            }
-//
-//            auto planner = PathPlanner();
-
-            // Sensor Fusion Data, a list of all other cars on the same side of the road.
-            //["sensor_fusion"] A 2d vector of cars and then that car's [
-            // * [0] car's unique ID
-            // * [1] car's x position in map coordinates
-            // * [2] car's y position in map coordinates
-            // * [3] car's x velocity in m/s
-            // * [4] car's y velocity in m/s
-            // * [5] car's s position in frenet coordinates. (DO NOT USE)
-            // * [6] car's d position in frenet coordinates. (DO NOT USE)
-            auto sensor_fusion = j[1]["sensor_fusion"];
-            vector<Vehicle> other_vehicles;
-            for (auto &vehicle_data : sensor_fusion) {
-              Vehicle new_vehicle{vehicle_data[0], Position{vehicle_data[1], vehicle_data[2]}};
-              new_vehicle.v(utils::distance(vehicle_data[3], vehicle_data[4]));
-
-              other_vehicles.emplace_back(new_vehicle);
-            }
-
-            // Generate the predictions for the other cars.
-            map<int, vector<Vehicle>> other_vehicle_predictions;
-            for (Vehicle &other_vehicle: other_vehicles) {
-              other_vehicle_predictions[other_vehicle.id()] = carCtl.generate_predictions(3, other_vehicle);
-            }
-
-            FrenetPos lastF;
-            Position lastPosXY;
-
-
-            int prev_path_size = j[1]["previous_path_x"].size();
-            cout << "prev_path_size: " << prev_path_size << "\n";
-            int generate_path_size = 50 - prev_path_size;
-            cout << "generate_path_size: " << generate_path_size << "\n";
-            if (prev_path_size <= 0) {
-              lastPosXY = carCtl.vehicle.position();
-            } else {
-              lastPosXY = Position{
-                  j[1]["previous_path_x"][prev_path_size - 1],
-                  j[1]["previous_path_y"][prev_path_size - 1],
-                  // TODO using this yaw may not be accurate enough!
-                  carCtl.vehicle.yaw()
-              };
-            }
-            cout << "last_x: " << lastPosXY.x << " last y: " << lastPosXY.y << " last yaw: " << lastPosXY.yaw << "\n";
-            lastF = carCtl.trackMap->getFrenet(lastPosXY);
-            cout << "last_s: " << lastF.s << " last d: " << lastF.d << "\n";
-            int closest_wp = carCtl.trackMap->ClosestWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,
-                                                              carCtl.trackMap->waypoints_y);
-            int next_wp = carCtl.trackMap->NextWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,
-                                                        carCtl.trackMap->waypoints_y);
-            cout << "closest_wp: " << closest_wp << " next_wp: " << next_wp << "\n";
-
-            for (int i = 0; i < prev_path_size; i++) {
+          // If the number of path steps used is less than the delay, then pass the same
+          // steps back to the simulator. Used for efficiency.
+          if (path_steps_used < carCtl.plan_delay) {
+            for (int i = 0; i < carCtl.prev_path_size; i++) {
               next_x_vals.push_back(j[1]["previous_path_x"][i]);
               next_y_vals.push_back(j[1]["previous_path_y"][i]);
             }
+          } else {
 
-            if (generate_path_size > 25) {
-              // PHASE 1
-              // Just stupidly drive forward at 11MPH.
-              //            for (int i = 1; i <= generate_path_size; i++) {
-              //              lastF.s += .1;
-              //              cout << "new s: " << lastF.s << "\n";
-              //              Position posXY = carCtl.trackMap->getXY(lastF);
-              //              cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
-              //              double dist = distance(posXY.x, posXY.y, lastPosXY.x, lastPosXY.y);
-              //
-              //              next_x_vals.push_back(posXY.x);
-              //              next_y_vals.push_back(posXY.y);
-              //            }
-              // Use the proper trajectory generator.
+            // We've got to create new points then. If we're starting from scratch,
+            // then the trajectories are not valid, so assume we're stopped.
+            vector<double> s_state; // s state {s pos, s vel, s acc, s speed, ? }
+            vector<double> d_state; // d state {d pos, d vel, d acc, curr lane d, ?}
+            if (carCtl.prev_path_size == 0) {
 
-              // PHASE 2
-//              Vehicle new_vpt;
-//              //other_vehicle_predictions = {};
-//              double last_s = -1;
-//              for (int i = 1; i <= generate_path_size; i++) {
-//                new_vpt = carCtl.get_lane_kinematic(carCtl.last_path_vehicle, 1, i/50., 50., other_vehicle_predictions);
-//                auto new_f = carCtl.trackMap->getFrenet(new_vpt.position());
-//                if (last_s > 0 && last_s > new_f.s) {
-//                  cout << "ERROR\n";
-//                  continue;
-//                }
-//                last_s = new_f.s;
-//                cout << i << "-----------\n";
-//                cout << "new s: " << new_f.s << "new d: " << new_f.d <<"\n";
-//                cout << "new_x: " << new_vpt.x() << " new_y: " << new_vpt.y() << " new_yaw:" << new_vpt.yaw() << "\n";
-//                cout << "new_v: " << new_vpt.v() << " new_a: " << new_vpt.a() << "\n";
-//                next_x_vals.emplace_back(new_vpt.x());
-//                next_y_vals.emplace_back(new_vpt.y());
-//              }
-//              carCtl.last_path_vehicle = new_vpt;
-//            }
-              // Choose the next state based on the trajectories of the other cars.
+              // Assume we're stopped, so velocity and acceleration are all zero.
+              s_state = {s, 0, 0, carCtl.speed_limit, 0};
+              d_state = {d, 0, 0, carCtl.get_lane() * 4. + 2., 0, 0};
+            } else {
 
-              VehicleController lastCarCtl{carCtl.last_path_vehicle, carCtl.fsm, carCtl.trackMap};
-              lastCarCtl.vehicle = carCtl.last_path_vehicle;
+              // Assume we're moving. Find out at which time we're at along our last trajectory.
+              double last_time = path_steps_used * 0.02;
 
-              std::pair<fsm::STATE, vector<Vehicle>> best_state_path = planner.choose_next_state(lastCarCtl, other_vehicle_predictions);
-
-              lastCarCtl.fsm->state = best_state_path.first;
-
-              cout << "<<<BEST STATE: " << best_state_path.first << "\n";
-
-              //lastCarCtl.extend_trajectory(best_state_path.second);
-              for (int i = 1; i <= generate_path_size; i++) {
-                if (i < best_state_path.second.size()) {
-                  Vehicle v = best_state_path.second[i];
-                  next_x_vals.push_back(best_state_path.second[i].x());
-                  next_y_vals.push_back(best_state_path.second[i].y());
-                  carCtl.last_path_vehicle = v;
-                  cout << "new_x: " << v.x() << " new_y: " << v.y() << " new_yaw:" << v.yaw() << "\n";
-                }
+              // Use the last saved trajectories to figure out where we are and our
+              // velocity and acceleration.
+              s = sTrajectory.getDis(last_time);
+              while (s > carCtl.trackMap->max_s) {
+                s -= carCtl.trackMap->max_s;
               }
+              double s_vel = sTrajectory.getVel(last_time); // velocity along s at last_time
+              double s_acc = sTrajectory.getAcc(last_time); // acceleration along s at last_time
+              d = dTrajectory.getDis(last_time); // d position at last_time
+              double d_vel = dTrajectory.getVel(last_time); // velocity along d at last_time
+              double d_acc = dTrajectory.getAcc(last_time); // acceleration along d at last_time
+
+              s_state = {s, s_vel, s_acc, carCtl.speed_limit, 0};
+              d_state = {d, d_vel, d_acc, carCtl.get_lane() * 4. + 2., 0, 0};
+            }
+
+            // How many seconds ahead do we need to calculate a trajectory for?
+            double time_horizon = (carCtl.size_horizon - 1) * 0.02;
+
+            // Get the cars that are near by during the time_horizon to test for collisions.
+            vector<vector<double>> near_cars = carCtl.trackMap->get_near_cars(s, speed_mph, time_horizon, j[1]["sensor_fusion"]);
+
+            // Generate a set of trajectories and costs using the s and d states.
+            vector<Trajectory2D> combSet = planner.generate_trajectories(carCtl, s_state, d_state, time_horizon, near_cars);
+
+            // Rarely, we can't find any trajectory with the full time horizon, like in crowded traffic,
+            // so we lower the time_horizon until we do.
+            while (combSet.empty() && time_horizon > 2.) {
+              time_horizon *= 0.9;
+              combSet = planner.generate_trajectories(carCtl, s_state, d_state, time_horizon, near_cars);
+            }
+
+            // Find the best trajectories in the set with the minimal cost.
+            mct_idx = planner.minimal_cost_trajectory(combSet);
+            sTrajectory = combSet[mct_idx].sTraj;
+            dTrajectory = combSet[mct_idx].dTraj;
+
+            // Generate x,y coordinates from the best trajectories.
+            double next_s;
+            double next_d;
+            vector<double> xy_vector;
+            for (int i = 0; i < carCtl.size_horizon; i++) {
+              next_s = sTrajectory.getDis(i * 0.02); // get s value at time i*0.02
+              next_d = dTrajectory.getDis(i * 0.02); // get d value at time d*0.02
+
+              // Convert s and d to map coordinates.
+              xy_vector = utils::parabolicGetXY(next_s, next_d, carCtl.trackMap->waypoints_s,
+                                          carCtl.trackMap->waypoints_x, carCtl.trackMap->waypoints_y);
+
+              next_x_vals.push_back(xy_vector[0]);
+              next_y_vals.push_back(xy_vector[1]);
             }
           }
 
+          // Send the x and y values back to the simulator.
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
@@ -252,10 +176,6 @@ int main() {
 
           //this_thread::sleep_for(chrono::milliseconds(1000));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-
-
-
-          counter -= 1;
 
         }
       } else {

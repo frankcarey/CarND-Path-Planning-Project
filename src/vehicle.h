@@ -23,9 +23,10 @@ namespace vehicle {
 
   private:
     int _id;
-    Position _position;
+    FrenetPos _fpos;
     double _a;
     double _v;
+    double _yaw;
     double _yaw_delta;
     time_point<system_clock> _time;
 
@@ -33,7 +34,7 @@ namespace vehicle {
 
     Vehicle();
 
-    explicit Vehicle(int id, Position position);
+    explicit Vehicle(int id, FrenetPos position);
 
     int id();
 
@@ -55,13 +56,13 @@ namespace vehicle {
 
     void a(double a);
 
-    double x();
+    double s();
 
-    void x(double x);
+    void s(double s);
 
-    double y();
+    double d();
 
-    void y(double y);
+    void d(double s);
 
     double yaw();
 
@@ -71,9 +72,9 @@ namespace vehicle {
 
     void yaw_delta(double yaw_delta);
 
-    Position position();
+    FrenetPos position();
 
-    void position(Position pos);
+    void position(FrenetPos pos);
 
     Vehicle clone();
 
@@ -94,17 +95,20 @@ namespace vehicle {
 
     Vehicle vehicle;
 
-    Vehicle last_path_vehicle;
-
     Map *trackMap;
 
     fsm::VehicleFSM *fsm;
 
-    double max_acceleration;
+    const double speed_limit = 22.352 - 2.; // 22.352 ms/ is equal to 50Mph in a smarter units system (sorry USA) 2.2352
+    const double speed_minimum = 8.;
+    const double acc_limit = 10.0; // max acceleration in m/2^2
+    const double jerk_limit = 10.0; // max Jerk in m/s^3
+    const int size_horizon = 250; // size of path to pass to simulator for each new path
+    const int plan_delay = 10; // size of path already driven after which a new path must be planned
+
+    int prev_path_size;
 
     time_point<system_clock> last_update_time;
-
-    double last_update_time_delta;
 
     std::deque<Vehicle> trajectory;
 
@@ -132,21 +136,11 @@ namespace vehicle {
 
     vector<Vehicle> prep_lane_change_trajectory(fsm::STATE state, map<int, vector<Vehicle>> &other_vehicle_predictions);
 
-    Vehicle predict_next(Vehicle &car, double timedelta);
-
-    vector<Vehicle> generate_predictions(int n_steps, Vehicle other_car);
-
     int get_lane();
-
-    double time_delta();
 
     void update(double x, double y, double yaw, double speed_mph, int prev_trajectory_size);
 
-    void trim_prev_trajectory(int prev_size);
-
     void extend_trajectory(vector<Vehicle> &path);
-
-    VehicleController clone();
 
   };
 }
