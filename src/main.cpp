@@ -20,6 +20,7 @@ using namespace fsm;
 // for convenience
 using json = nlohmann::json;
 
+bool funcia (combiTraj i, combiTraj j) { return (i.Cost < j.Cost); } // small helper function to sort a set of combiTraj by their costs
 
 int main() {
   uWS::Hub h;
@@ -31,8 +32,6 @@ int main() {
   const double MAX_LEGAL_MPH = 50; // in MPH! TODO this is actually 50.
   const int NUMBER_OF_LANES = 3;
   const double MAX_ACCELERATION = 1; // in meters per second squared
-
-
 
   utils::Map trackMap =  utils::Map(map_file, max_s, MAX_LEGAL_MPH, NUMBER_OF_LANES);
 
@@ -103,17 +102,17 @@ int main() {
           cout << "simulator| x: " << x << " y:" << y << " s: " << s << " d: " << d << " deg: " << yaw_deg << " rad: "
                << yaw_radians << "\n";
 
-          carCtl.update(x, y, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
+          carCtl.update(s, d, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
           // TODO: uncommment this and fix the interpolated waypoints. they seem to break near
           // new waypoints, probably because the map is wrong?
           //carCtl.trackMap->update_local_waypoints(carCtl.vehicle.position(), 2, 2);
 
-          cout << "post-update| x: " << carCtl.vehicle.x() << " y:" << carCtl.vehicle.y() << " yaw:"
-               << carCtl.vehicle.yaw() << "\n";
-          FrenetPos carF = carCtl.trackMap->getFrenet(carCtl.vehicle.position());
-          cout << "post-update-frenet| s: " << carF.s << " d:" << carF.d << "\n";
-          Position carPos = carCtl.trackMap->getXY(carF);
-          cout << "post-update| x: " << carPos.x << " y:" << carPos.y << " yaw:" << carPos.yaw << "\n";
+          //cout << "post-update| x: " << carCtl.vehicle.x() << " y:" << carCtl.vehicle.y() << " yaw:"
+          //     << carCtl.vehicle.yaw() << "\n";
+          //FrenetPos carF = carCtl.trackMap->getFrenet(carCtl.vehicle.position());
+          //cout << "post-update-frenet| s: " << carF.s << " d:" << carF.d << "\n";
+          //Position carPos = carCtl.trackMap->getXY(carF);
+          //cout << "post-update| x: " << carPos.x << " y:" << carPos.y << " yaw:" << carPos.yaw << "\n";
 
           // Just return so we get a previous state.
           if (!initialized) {
@@ -153,9 +152,8 @@ int main() {
             auto sensor_fusion = j[1]["sensor_fusion"];
             vector<Vehicle> other_vehicles;
             for (auto &vehicle_data : sensor_fusion) {
-              Vehicle new_vehicle{vehicle_data[0], Position{vehicle_data[1], vehicle_data[2]}};
+              Vehicle new_vehicle{vehicle_data[0], FrenetPos{vehicle_data[5], vehicle_data[6]}};
               new_vehicle.v(utils::distance(vehicle_data[3], vehicle_data[4]));
-
               other_vehicles.emplace_back(new_vehicle);
             }
 
@@ -173,68 +171,8 @@ int main() {
             cout << "prev_path_size: " << prev_path_size << "\n";
             int generate_path_size = 50 - prev_path_size;
             cout << "generate_path_size: " << generate_path_size << "\n";
-            if (prev_path_size <= 0) {
-              lastPosXY = carCtl.vehicle.position();
-            } else {
-              lastPosXY = Position{
-                  j[1]["previous_path_x"][prev_path_size - 1],
-                  j[1]["previous_path_y"][prev_path_size - 1],
-                  // TODO using this yaw may not be accurate enough!
-                  carCtl.vehicle.yaw()
-              };
-            }
-            cout << "last_x: " << lastPosXY.x << " last y: " << lastPosXY.y << " last yaw: " << lastPosXY.yaw << "\n";
-            lastF = carCtl.trackMap->getFrenet(lastPosXY);
-            cout << "last_s: " << lastF.s << " last d: " << lastF.d << "\n";
-            int closest_wp = carCtl.trackMap->ClosestWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,
-                                                              carCtl.trackMap->waypoints_y);
-            int next_wp = carCtl.trackMap->NextWaypoint(lastPosXY, carCtl.trackMap->waypoints_x,
-                                                        carCtl.trackMap->waypoints_y);
-            cout << "closest_wp: " << closest_wp << " next_wp: " << next_wp << "\n";
 
-//            for (int i = 0; i < prev_path_size; i++) {
-//              next_x_vals.push_back(j[1]["previous_path_x"][i]);
-//              next_y_vals.push_back(j[1]["previous_path_y"][i]);
-//            }
-
-            //if (generate_path_size > 25) {
-              // PHASE 1
-              // Just stupidly drive forward at 11MPH.
-              //            for (int i = 1; i <= generate_path_size; i++) {
-              //              lastF.s += .1;
-              //              cout << "new s: " << lastF.s << "\n";
-              //              Position posXY = carCtl.trackMap->getXY(lastF);
-              //              cout << "new_x: " << posXY.x << " new_y: " << posXY.y << "\n";
-              //              double dist = distance(posXY.x, posXY.y, lastPosXY.x, lastPosXY.y);
-              //
-              //              next_x_vals.push_back(posXY.x);
-              //              next_y_vals.push_back(posXY.y);
-              //            }
-              // Use the proper trajectory generator.
-
-              // PHASE 2
-//              Vehicle new_vpt;
-//              //other_vehicle_predictions = {};
-//              double last_s = -1;
-//              for (int i = 1; i <= generate_path_size; i++) {
-//                new_vpt = carCtl.get_lane_kinematic(carCtl.last_path_vehicle, 1, i/50., 50., other_vehicle_predictions);
-//                auto new_f = carCtl.trackMap->getFrenet(new_vpt.position());
-//                if (last_s > 0 && last_s > new_f.s) {
-//                  cout << "ERROR\n";
-//                  continue;
-//                }
-//                last_s = new_f.s;
-//                cout << i << "-----------\n";
-//                cout << "new s: " << new_f.s << "new d: " << new_f.d <<"\n";
-//                cout << "new_x: " << new_vpt.x() << " new_y: " << new_vpt.y() << " new_yaw:" << new_vpt.yaw() << "\n";
-//                cout << "new_v: " << new_vpt.v() << " new_a: " << new_vpt.a() << "\n";
-//                next_x_vals.emplace_back(new_vpt.x());
-//                next_y_vals.emplace_back(new_vpt.y());
-//              }
-//              carCtl.last_path_vehicle = new_vpt;
-//            }
-
-              int lane_desired = (int) floor(lastF.d/4);
+              int lane_desired = (int) floor(d/4);
               const double speed_limit = 22.352-2; // 22.352 ms/ is equal to 50Mph in a smarter units system (sorry USA) 2.2352
               const double acc_limit = 10.0; // max acceleration in m/2^2
               const double Jerk_limit = 10.0; // max Jerk in m/s^3
@@ -245,8 +183,6 @@ int main() {
 
               double time_horizon = (size_horizon - 1) * 0.02; // seconds for time horizon of path
               double time_plan =  (size_plan -1) * 0.02; // seconds between each path plannings
-              int ncf = 0;
-              int ncb = 0;
               speed_goal = min(speed_limit, speed_goal); // desired velocity for car
               std::vector<std::vector<double>> near_cars;
               double pos_x;
@@ -267,14 +203,11 @@ int main() {
               for (int i=0; i< sensor_fusion.size(); i++)
               {
                 double sc = sensor_fusion[i][5];
-                if (abs(s - sc) > max_s/2.) // check if the car is near the start of the track and adjust s values
-                {
-                  if (s > max_s/2.)
-                  {
+                // If the car is further than half way round the track from us, then measure from the other direction.
+                if (abs(s - sc) > max_s/2.){
+                  if (s > max_s/2.) {
                     sc += max_s;
-                  }
-                  else
-                  {
+                  } else {
                     sc -= max_s;
                   }
                 }
@@ -289,7 +222,6 @@ int main() {
                   if (vc*time_horizon + sc >= s + speed_mph*0.44704*time_horizon*0.7 - 4.)
                   {
                     near_cars.push_back(sensor_fusion[i]);
-                    ncb++;
                   }
                 }
                 else //car is ahead of us
@@ -298,7 +230,6 @@ int main() {
                   if (vc*time_horizon/3. + sc <= s + speed_mph*0.44704*time_horizon + 4.)
                   {
                     near_cars.push_back(sensor_fusion[i]);
-                    ncf++;
                   }
                 }
               }
@@ -306,34 +237,17 @@ int main() {
               if(prev_path_size == 0) // intialize first path
               {
                 // set intial s and d conditions
-                conds.clear();
-                conds.push_back(s);
-                conds.push_back(0.);
-                conds.push_back(0.);
-                conds.push_back(speed_goal);
-                conds.push_back(0.);
-
-                d_conds.clear();
-                d_conds.push_back(d);
-                d_conds.push_back(0.);
-                d_conds.push_back(0.);
-                d_conds.push_back(0 * 4. + 2.);
-                d_conds.push_back(0.);
-                d_conds.push_back(0.);
-
+                conds = {s, 0, 0, speed_goal, 0};
+                d_conds = {d, 0, 0, 0 * 4. + 2., 0, 0};
 
                 vector<Traj> longSet;
                 vector<Traj> lateSet;
                 vector<double> max_min;
 
                 //generate set of unidimensional trajectories
-                vector<vector<Traj> > sets = utils::genTrajSet(conds, d_conds, time_horizon, speed_goal, lane_desired,
-                                                               {speed_limit, 10., 10.}, max_min);
-
-                // set cost for every trajectory and combine them. Check also for collisions and dynamic limits
-                vector<combiTraj> combSet = utils::combineTrajectories(sets[0], sets[1], time_horizon, speed_goal,
-                                                                       lane_desired, {speed_limit, 10., 10.}, max_min,
-                                                                       near_cars);
+                vector<combiTraj> combSet = planner.generate_trajectories(conds, d_conds, time_horizon, speed_goal,
+                                                                           lane_desired,
+                                                                           {speed_limit, 10., 10.}, near_cars);
 
                 // find minimal cost trajectory
                 double min_Comb_Cost = 10e10;
@@ -404,26 +318,13 @@ int main() {
                   double vs_i = longTrajectory.getVel(t_i); // velocity along s at time t_ti
                   double as_i = longTrajectory.getAcc(t_i); // acceleration along s at time t_i
 
-
-
                   double dd_i = lateralTrajectory.getDis(t_i); // d position at time t_i
                   double vd_i = lateralTrajectory.getVel(t_i); // velocity along d at time t_ti
                   double ad_i = lateralTrajectory.getAcc(t_i); // acceleration along d at time t_i
 
                   // push conditions
-                  conds.push_back(ss_i);
-                  conds.push_back(vs_i);
-                  conds.push_back(as_i);
-                  conds.push_back(speed_goal);
-                  conds.push_back(0.);
-
-                  d_conds.push_back(dd_i);
-                  d_conds.push_back(vd_i);
-                  d_conds.push_back(ad_i);
-                  d_conds.push_back(lane_desired * 4. + 2.);
-                  d_conds.push_back(0.);
-                  d_conds.push_back(0.);
-
+                  conds = {ss_i, vs_i, as_i, speed_goal, 0};
+                  d_conds = {dd_i, vd_i, ad_i, lane_desired * 4. + 2., 0, 0};
 
                   double t_s = (size_horizon - size_keep - 1) * 0.02;
                   double t_d = (size_horizon - size_keep - 1) * 0.02;
@@ -439,13 +340,9 @@ int main() {
                     vector<double> max_min;
 
                     //generate set of unidimensional trajectories
-                    vector<vector<Traj> > sets = genTrajSet(conds, d_conds, time_manouver, speed_goal, lane_desired,
-                                                            {speed_limit, 10., 10.}, max_min);
-
-                    // set cost for every trajectory and combine them. Check also for collisions and dynamic limits
-                    combSet = combineTrajectories(sets[0], sets[1], time_manouver, speed_goal, lane_desired,
-                                                  {speed_limit, 10., 10.}, max_min, near_cars);
-
+                    combSet = planner.generate_trajectories(conds, d_conds, time_manouver,
+                                                                               speed_goal, lane_desired,
+                                                                               {speed_limit, 10., 10.}, near_cars);
 
                     // find minimal cost trajectory
                     if (combSet.size() > 0) {

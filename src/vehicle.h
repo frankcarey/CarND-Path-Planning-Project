@@ -23,9 +23,10 @@ namespace vehicle {
 
   private:
     int _id;
-    Position _position;
+    FrenetPos _fpos;
     double _a;
     double _v;
+    double _yaw;
     double _yaw_delta;
     time_point<system_clock> _time;
 
@@ -33,7 +34,7 @@ namespace vehicle {
 
     Vehicle();
 
-    explicit Vehicle(int id, Position position);
+    explicit Vehicle(int id, FrenetPos position);
 
     int id();
 
@@ -55,13 +56,13 @@ namespace vehicle {
 
     void a(double a);
 
-    double x();
+    double s();
 
-    void x(double x);
+    void s(double s);
 
-    double y();
+    double d();
 
-    void y(double y);
+    void d(double s);
 
     double yaw();
 
@@ -71,9 +72,9 @@ namespace vehicle {
 
     void yaw_delta(double yaw_delta);
 
-    Position position();
+    FrenetPos position();
 
-    void position(Position pos);
+    void position(FrenetPos pos);
 
     Vehicle clone();
 
