@@ -6,8 +6,9 @@
 #include <thread>
 #include <vector>
 #include "json.hpp"
-#include "vehicle.h"
+#include "trajectory.h"
 #include "utils.h"
+#include "vehicle.h"
 #include "path_planner.h"
 
 
@@ -48,8 +49,15 @@ int main() {
   bool initialized = false;
 
   int counter = 0;
+  int size_prev_plan = 0; // number of points already reached since last planned path
+  int size_prev_path = 0; // total size of last path passed to simulator
+  int size_kept = 0; // points of previous path added to current path
+  double speed_goal = 10e2; //desired speed
+  Traj longTrajectory; // trajectory along s
+  Traj lateralTrajectory; //trajectory along d
 
-  h.onMessage([&carCtl, &initialized, &counter](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
+  h.onMessage([&carCtl, &initialized, &counter, &size_prev_plan, &size_prev_path, &size_kept, &max_s, &speed_goal,
+                  &longTrajectory, &lateralTrajectory](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -80,6 +88,10 @@ int main() {
           double speed_mph = j[1]["speed"];
           double s = j[1]["s"];
           double d = j[1]["d"];
+
+
+          vector<double> previous_path_x = j[1]["previous_path_x"];
+          vector<double> previous_path_y = j[1]["previous_path_y"];
 
           vector<double> next_x_vals;
           vector<double> next_y_vals;
@@ -180,12 +192,12 @@ int main() {
                                                         carCtl.trackMap->waypoints_y);
             cout << "closest_wp: " << closest_wp << " next_wp: " << next_wp << "\n";
 
-            for (int i = 0; i < prev_path_size; i++) {
-              next_x_vals.push_back(j[1]["previous_path_x"][i]);
-              next_y_vals.push_back(j[1]["previous_path_y"][i]);
-            }
+//            for (int i = 0; i < prev_path_size; i++) {
+//              next_x_vals.push_back(j[1]["previous_path_x"][i]);
+//              next_y_vals.push_back(j[1]["previous_path_y"][i]);
+//            }
 
-            if (generate_path_size > 25) {
+            //if (generate_path_size > 25) {
               // PHASE 1
               // Just stupidly drive forward at 11MPH.
               //            for (int i = 1; i <= generate_path_size; i++) {
@@ -221,29 +233,259 @@ int main() {
 //              }
 //              carCtl.last_path_vehicle = new_vpt;
 //            }
+
+              int lane_desired = (int) floor(lastF.d/4);
+              const double speed_limit = 22.352-2; // 22.352 ms/ is equal to 50Mph in a smarter units system (sorry USA) 2.2352
+              const double acc_limit = 10.0; // max acceleration in m/2^2
+              const double Jerk_limit = 10.0; // max Jerk in m/s^3
+              const int size_horizon = 250; // size of path to pass to simulator for each new path
+              const int size_plan = 10; // size of path already driven after which a new path must be planned
+              const int size_keep = 0; // points of previous path to add to new path
+
+
+              double time_horizon = (size_horizon - 1) * 0.02; // seconds for time horizon of path
+              double time_plan =  (size_plan -1) * 0.02; // seconds between each path plannings
+              int ncf = 0;
+              int ncb = 0;
+              speed_goal = min(speed_limit, speed_goal); // desired velocity for car
+              std::vector<std::vector<double>> near_cars;
+              double pos_x;
+              double pos_y;
+              double angle;
+              int path_size = prev_path_size; // how many points where passed in previous plan
+
+              double next_s; // next s value
+              double next_d; // next d value
+              vector<double> sxy;
+
+              std::vector<double> conds; // boundary conditions for s
+              std::vector<double> d_conds; // boundary conditions for d
+
+
               // Choose the next state based on the trajectories of the other cars.
+              // select the nearest cars from sensor fusion data
+              for (int i=0; i< sensor_fusion.size(); i++)
+              {
+                double sc = sensor_fusion[i][5];
+                if (abs(s - sc) > max_s/2.) // check if the car is near the start of the track and adjust s values
+                {
+                  if (s > max_s/2.)
+                  {
+                    sc += max_s;
+                  }
+                  else
+                  {
+                    sc -= max_s;
+                  }
+                }
+                double dc = sensor_fusion[i][6];
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double vc = sqrt(vx*vx + vy*vy);
 
-              VehicleController lastCarCtl{carCtl.last_path_vehicle, carCtl.fsm, carCtl.trackMap};
-              lastCarCtl.vehicle = carCtl.last_path_vehicle;
+                if (s > sc) // car is behind us
+                {
+                  // check if the car is at a distance such that it can reach our car in time_horizon*0.7 seconds at current speed
+                  if (vc*time_horizon + sc >= s + speed_mph*0.44704*time_horizon*0.7 - 4.)
+                  {
+                    near_cars.push_back(sensor_fusion[i]);
+                    ncb++;
+                  }
+                }
+                else //car is ahead of us
+                {
+                  // check if the car is at a distance that our car can reach in time_horizon seconds at max speed, even if the car decelerates to 1/3 of its current velocity
+                  if (vc*time_horizon/3. + sc <= s + speed_mph*0.44704*time_horizon + 4.)
+                  {
+                    near_cars.push_back(sensor_fusion[i]);
+                    ncf++;
+                  }
+                }
+              }
 
-              std::pair<fsm::STATE, vector<Vehicle>> best_state_path = planner.choose_next_state(lastCarCtl, other_vehicle_predictions);
+              if(prev_path_size == 0) // intialize first path
+              {
+                // set intial s and d conditions
+                conds.clear();
+                conds.push_back(s);
+                conds.push_back(0.);
+                conds.push_back(0.);
+                conds.push_back(speed_goal);
+                conds.push_back(0.);
 
-              lastCarCtl.fsm->state = best_state_path.first;
+                d_conds.clear();
+                d_conds.push_back(d);
+                d_conds.push_back(0.);
+                d_conds.push_back(0.);
+                d_conds.push_back(0 * 4. + 2.);
+                d_conds.push_back(0.);
+                d_conds.push_back(0.);
 
-              cout << "<<<BEST STATE: " << best_state_path.first << "\n";
 
-              //lastCarCtl.extend_trajectory(best_state_path.second);
-              for (int i = 1; i <= generate_path_size; i++) {
-                if (i < best_state_path.second.size()) {
-                  Vehicle v = best_state_path.second[i];
-                  next_x_vals.push_back(best_state_path.second[i].x());
-                  next_y_vals.push_back(best_state_path.second[i].y());
-                  carCtl.last_path_vehicle = v;
-                  cout << "new_x: " << v.x() << " new_y: " << v.y() << " new_yaw:" << v.yaw() << "\n";
+                vector<Traj> longSet;
+                vector<Traj> lateSet;
+                vector<double> max_min;
+
+                //generate set of unidimensional trajectories
+                vector<vector<Traj> > sets = utils::genTrajSet(conds, d_conds, time_horizon, speed_goal, lane_desired,
+                                                               {speed_limit, 10., 10.}, max_min);
+
+                // set cost for every trajectory and combine them. Check also for collisions and dynamic limits
+                vector<combiTraj> combSet = utils::combineTrajectories(sets[0], sets[1], time_horizon, speed_goal,
+                                                                       lane_desired, {speed_limit, 10., 10.}, max_min,
+                                                                       near_cars);
+
+                // find minimal cost trajectory
+                double min_Comb_Cost = 10e10;
+                int min_Comb_idx = 0;
+                for (int k = 0; k < combSet.size(); k++) {
+
+                  if (min_Comb_Cost > combSet[k].Cost) {
+                    min_Comb_Cost = combSet[k].Cost;
+                    min_Comb_idx = k;
+                  }
+                }
+
+                longTrajectory = combSet[min_Comb_idx].Trs;  // set s trajectory
+                lateralTrajectory = combSet[min_Comb_idx].Trd; // set d trajectory
+
+                size_prev_path = 0;
+
+                //generate next points using selected trajectory with a time pace of 0.02 seconds
+                for (int i = 0; i < size_horizon; i++) {
+                  next_s = longTrajectory.getDis(i * 0.02); // get s value at time i*0.02
+                  next_d = lateralTrajectory.getDis(i * 0.02); // get d value at time d*0.02
+
+                  // convert  to  global coordinates
+                  sxy = utils::parabolicGetXY(next_s, next_d, carCtl.trackMap->waypoints_s,
+                                              carCtl.trackMap->waypoints_x, carCtl.trackMap->waypoints_y);
+
+                  // pass to simulator
+                  next_x_vals.push_back(sxy[0]);
+                  next_y_vals.push_back(sxy[1]);
+
+                  size_prev_path++;
+                }
+                size_kept = 0;
+              }
+              else {
+                // CURRENT PATH IS VALID UNTIL NEXT PLAN SO CHECK TIME ELAPSED FROM PREVIOUS PLANNING
+
+                size_prev_plan = size_prev_path - path_size;
+
+                if (size_prev_plan >= size_plan) {
+
+                  // PLAN AGAIN AND RESET time_prev_path
+
+                  size_prev_path = 0;
+
+                  // KEEP points of previous path
+                  for (int i = 0; i < size_keep; i++) {
+                    next_x_vals.push_back(previous_path_x[i]);
+                    next_y_vals.push_back(previous_path_y[i]);
+
+                    size_prev_path++;
+
+                  }
+
+                  // prepare new boundary conditions
+                  conds.clear();
+                  d_conds.clear();
+                  // point from wich to start new plan
+                  int point_i = size_prev_plan + size_keep - size_kept + 1;
+                  size_kept = size_keep;
+                  double t_i = (point_i - 1) * 0.02;
+
+
+                  double ss_i = longTrajectory.getDis(t_i); // s position at time t_i
+                  while (ss_i > max_s) {
+                    ss_i -= max_s;
+                  }
+                  double vs_i = longTrajectory.getVel(t_i); // velocity along s at time t_ti
+                  double as_i = longTrajectory.getAcc(t_i); // acceleration along s at time t_i
+
+
+
+                  double dd_i = lateralTrajectory.getDis(t_i); // d position at time t_i
+                  double vd_i = lateralTrajectory.getVel(t_i); // velocity along d at time t_ti
+                  double ad_i = lateralTrajectory.getAcc(t_i); // acceleration along d at time t_i
+
+                  // push conditions
+                  conds.push_back(ss_i);
+                  conds.push_back(vs_i);
+                  conds.push_back(as_i);
+                  conds.push_back(speed_goal);
+                  conds.push_back(0.);
+
+                  d_conds.push_back(dd_i);
+                  d_conds.push_back(vd_i);
+                  d_conds.push_back(ad_i);
+                  d_conds.push_back(lane_desired * 4. + 2.);
+                  d_conds.push_back(0.);
+                  d_conds.push_back(0.);
+
+
+                  double t_s = (size_horizon - size_keep - 1) * 0.02;
+                  double t_d = (size_horizon - size_keep - 1) * 0.02;
+
+                  vector<combiTraj> combSet; // set of combined trajectories
+                  double time_manouver = t_s;
+                  int min_Comb_idx = 0;
+
+                  // continue to generate trajectories if no suitable trajectory is found, until time_manouver is lower than 2 seconds
+                  while (combSet.size() < 1 && time_manouver > 2.) {
+                    vector<Traj> longSet;
+                    vector<Traj> lateSet;
+                    vector<double> max_min;
+
+                    //generate set of unidimensional trajectories
+                    vector<vector<Traj> > sets = genTrajSet(conds, d_conds, time_manouver, speed_goal, lane_desired,
+                                                            {speed_limit, 10., 10.}, max_min);
+
+                    // set cost for every trajectory and combine them. Check also for collisions and dynamic limits
+                    combSet = combineTrajectories(sets[0], sets[1], time_manouver, speed_goal, lane_desired,
+                                                  {speed_limit, 10., 10.}, max_min, near_cars);
+
+
+                    // find minimal cost trajectory
+                    if (combSet.size() > 0) {
+                      std::sort(combSet.begin(), combSet.end(), funcia);
+                    } else {
+                      time_manouver *= 0.9; // if no trajectory is found, repeate trajectories generation with a smaller time horizon
+                    }
+                  }
+
+                  longTrajectory = combSet[0].Trs;
+                  lateralTrajectory = combSet[0].Trd;
+
+
+                  for (int i = 0; i < (size_horizon - size_keep); i++) {
+                    //generate next points using selected trajectory with a time pace of 0.02 seconds
+                    next_s = longTrajectory.getDis(i * 0.02);
+                    next_d = lateralTrajectory.getDis(i * 0.02);
+
+                    // convert  to  global coordinates
+                    sxy = parabolicGetXY(next_s, next_d, carCtl.trackMap->waypoints_s, carCtl.trackMap->waypoints_x, carCtl.trackMap->waypoints_y);
+
+                    // pass points to simulator
+                    next_x_vals.push_back(sxy[0]);
+                    next_y_vals.push_back(sxy[1]);
+
+                    size_prev_path++;
+                  }
+
+                  size_prev_plan = 0.;
+
+                } else {
+                  // NO PLANNING BECAUSE LAST PATH IS NOT EXPIRED
+                  for (int i = 0; i < path_size; i++) {
+                    next_x_vals.push_back(previous_path_x[i]);
+                    next_y_vals.push_back(previous_path_y[i]);
+                  }
                 }
               }
             }
-          }
+          //}
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;

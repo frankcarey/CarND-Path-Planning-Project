@@ -11,6 +11,7 @@
 #include <string>
 #include <cmath>
 #include "spline.h"
+#include "trajectory.h"
 
 using namespace std;
 
@@ -146,6 +147,15 @@ namespace utils {
     vector<double> x_list ;
     vector<double> y_list ;
   };
+
+  vector<double> parabolicGetXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y);
+  vector<double> keepVelPoly(vector<double> conds, double T);
+  vector<double> minJerkPoly(vector<double> conds, double T);
+  vector< vector<Traj> > genTrajSet (vector<double> conds_s, vector<double> conds_d,  double time_horizon,
+                                     double s_goal, double l_desired, vector<double> limits, vector<double> & max_min);
+  vector<combiTraj> combineTrajectories(vector<Traj> longSet, vector<Traj> lateSet, double time_horizon,
+                                        double s_goal, double l_desired, vector<double> limits, vector<double> & max_min, vector< vector<double> > & near_cars);
+  bool funcia (combiTraj i, combiTraj j);
 
 }
 
