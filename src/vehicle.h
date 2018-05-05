@@ -109,6 +109,8 @@ namespace vehicle {
     const int size_plan = 10; // size of path already driven after which a new path must be planned
     const int size_keep = 0; // points of previous path to add to new path
 
+    int prev_path_size;
+
     time_point<system_clock> last_update_time;
 
     double last_update_time_delta;

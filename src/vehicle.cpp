@@ -145,7 +145,7 @@ namespace vehicle {
     return this->trackMap->getFrenetLane(this->vehicle.position());
   }
 
-  void VehicleController::update(double s, double d, double yaw, double speed_mph, int prev_size) {
+  void VehicleController::update(double s, double d, double yaw, double speed_mph, int prev_path_size) {
     this->last_update_time_delta = duration_cast<std::chrono::milliseconds>(system_clock::now() - this->last_update_time).count();
     this->last_update_time = system_clock::now();
     //cout << time_diff<< "ms \n";
@@ -158,7 +158,7 @@ namespace vehicle {
     this->vehicle.yaw(yaw);
     this->vehicle.v(utils::from_mph(speed_mph));
 
-    this->trim_prev_trajectory(prev_size);
+    this->prev_path_size = prev_path_size;
 
   };
 
