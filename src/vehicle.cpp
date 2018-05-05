@@ -137,7 +137,6 @@ namespace vehicle {
     this->last_path_vehicle = vehicle;
     this->fsm = fsm;
     this->trackMap = trackMap;
-    this->max_acceleration = 8;
 
     //this->last_vehicle = vehicle.clone();
   }
