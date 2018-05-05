@@ -172,7 +172,6 @@ int main() {
             cout << "generate_path_size: " << generate_path_size << "\n";
 
               int lane_desired = (int) floor(d/4);
-              const double speed_limit = 22.352-2; // 22.352 ms/ is equal to 50Mph in a smarter units system (sorry USA) 2.2352
               const double acc_limit = 10.0; // max acceleration in m/2^2
               const double Jerk_limit = 10.0; // max Jerk in m/s^3
               const int size_horizon = 250; // size of path to pass to simulator for each new path
@@ -182,7 +181,7 @@ int main() {
 
               double time_horizon = (size_horizon - 1) * 0.02; // seconds for time horizon of path
               double time_plan =  (size_plan -1) * 0.02; // seconds between each path plannings
-              speed_goal = min(speed_limit, speed_goal); // desired velocity for car
+              speed_goal = min(carCtl.speed_limit, speed_goal); // desired velocity for car
               std::vector<std::vector<double>> near_cars;
               double pos_x;
               double pos_y;
@@ -246,7 +245,7 @@ int main() {
                 //generate set of unidimensional trajectories
                 vector<combiTraj> combSet = planner.generate_trajectories(conds, d_conds, time_horizon, speed_goal,
                                                                            lane_desired,
-                                                                           {speed_limit, 10., 10.}, near_cars);
+                                                                           {carCtl.speed_limit, 10., 10.}, near_cars);
 
                 // find minimal cost trajectory
                 double min_Comb_Cost = 10e10;
@@ -341,7 +340,7 @@ int main() {
                     //generate set of unidimensional trajectories
                     combSet = planner.generate_trajectories(conds, d_conds, time_manouver,
                                                                                speed_goal, lane_desired,
-                                                                               {speed_limit, 10., 10.}, near_cars);
+                                                                               {carCtl.speed_limit, 10., 10.}, near_cars);
 
                     // find minimal cost trajectory
                     if (combSet.size() > 0) {
@@ -370,7 +369,7 @@ int main() {
                     size_prev_path++;
                   }
 
-                  size_prev_plan = 0.;
+                  size_prev_plan = 0;
 
                 } else {
                   // NO PLANNING BECAUSE LAST PATH IS NOT EXPIRED
