@@ -172,14 +172,11 @@ int main() {
             cout << "generate_path_size: " << generate_path_size << "\n";
 
               int lane_desired = (int) floor(d/4);
-              const double acc_limit = 10.0; // max acceleration in m/2^2
-              const double Jerk_limit = 10.0; // max Jerk in m/s^3
-              const int size_horizon = 250; // size of path to pass to simulator for each new path
               const int size_plan = 10; // size of path already driven after which a new path must be planned
               const int size_keep = 0; // points of previous path to add to new path
 
 
-              double time_horizon = (size_horizon - 1) * 0.02; // seconds for time horizon of path
+              double time_horizon = (carCtl.size_horizon - 1) * 0.02; // seconds for time horizon of path
               double time_plan =  (size_plan -1) * 0.02; // seconds between each path plannings
               speed_goal = min(carCtl.speed_limit, speed_goal); // desired velocity for car
               std::vector<std::vector<double>> near_cars;
@@ -245,7 +242,7 @@ int main() {
                 //generate set of unidimensional trajectories
                 vector<combiTraj> combSet = planner.generate_trajectories(conds, d_conds, time_horizon, speed_goal,
                                                                            lane_desired,
-                                                                           {carCtl.speed_limit, 10., 10.}, near_cars);
+                                                                           {carCtl.speed_limit, carCtl.acc_limit, carCtl.jerk_limit}, near_cars);
 
                 // find minimal cost trajectory
                 double min_Comb_Cost = 10e10;
@@ -264,7 +261,7 @@ int main() {
                 size_prev_path = 0;
 
                 //generate next points using selected trajectory with a time pace of 0.02 seconds
-                for (int i = 0; i < size_horizon; i++) {
+                for (int i = 0; i < carCtl.size_horizon; i++) {
                   next_s = longTrajectory.getDis(i * 0.02); // get s value at time i*0.02
                   next_d = lateralTrajectory.getDis(i * 0.02); // get d value at time d*0.02
 
@@ -324,8 +321,8 @@ int main() {
                   conds = {ss_i, vs_i, as_i, speed_goal, 0};
                   d_conds = {dd_i, vd_i, ad_i, lane_desired * 4. + 2., 0, 0};
 
-                  double t_s = (size_horizon - size_keep - 1) * 0.02;
-                  double t_d = (size_horizon - size_keep - 1) * 0.02;
+                  double t_s = (carCtl.size_horizon - size_keep - 1) * 0.02;
+                  double t_d = (carCtl.size_horizon - size_keep - 1) * 0.02;
 
                   vector<combiTraj> combSet; // set of combined trajectories
                   double time_manouver = t_s;
@@ -340,7 +337,7 @@ int main() {
                     //generate set of unidimensional trajectories
                     combSet = planner.generate_trajectories(conds, d_conds, time_manouver,
                                                                                speed_goal, lane_desired,
-                                                                               {carCtl.speed_limit, 10., 10.}, near_cars);
+                                                                               {carCtl.speed_limit, carCtl.acc_limit, carCtl.jerk_limit}, near_cars);
 
                     // find minimal cost trajectory
                     if (combSet.size() > 0) {
@@ -354,7 +351,7 @@ int main() {
                   lateralTrajectory = combSet[0].Trd;
 
 
-                  for (int i = 0; i < (size_horizon - size_keep); i++) {
+                  for (int i = 0; i < (carCtl.size_horizon - size_keep); i++) {
                     //generate next points using selected trajectory with a time pace of 0.02 seconds
                     next_s = longTrajectory.getDis(i * 0.02);
                     next_d = lateralTrajectory.getDis(i * 0.02);

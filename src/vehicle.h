@@ -104,7 +104,7 @@ namespace vehicle {
     const double speed_limit = 22.352 - 2.; // 22.352 ms/ is equal to 50Mph in a smarter units system (sorry USA) 2.2352
     const double speed_minimum = 8.;
     const double acc_limit = 10.0; // max acceleration in m/2^2
-    const double Jerk_limit = 10.0; // max Jerk in m/s^3
+    const double jerk_limit = 10.0; // max Jerk in m/s^3
     const int size_horizon = 250; // size of path to pass to simulator for each new path
     const int size_plan = 10; // size of path already driven after which a new path must be planned
     const int size_keep = 0; // points of previous path to add to new path
