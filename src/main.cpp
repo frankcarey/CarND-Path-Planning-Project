@@ -43,7 +43,6 @@ int main() {
   VehicleController carCtl = VehicleController(car, &fsm, &trackMap);
   // TODO: Initialize this initial position in a better way.
   //carCtl.vehicle = Vehicle(0, Position(909.47, 1128.67));
-  carCtl.max_acceleration = MAX_ACCELERATION;
 
   bool initialized = false;
 
