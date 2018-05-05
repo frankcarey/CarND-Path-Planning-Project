@@ -172,12 +172,9 @@ int main() {
             cout << "generate_path_size: " << generate_path_size << "\n";
 
               int lane_desired = (int) floor(d/4);
-              const int size_plan = 10; // size of path already driven after which a new path must be planned
-              const int size_keep = 0; // points of previous path to add to new path
-
 
               double time_horizon = (carCtl.size_horizon - 1) * 0.02; // seconds for time horizon of path
-              double time_plan =  (size_plan -1) * 0.02; // seconds between each path plannings
+              double time_plan =  (carCtl.size_plan -1) * 0.02; // seconds between each path plannings
               speed_goal = min(carCtl.speed_limit, speed_goal); // desired velocity for car
               std::vector<std::vector<double>> near_cars;
               double pos_x;
@@ -282,14 +279,14 @@ int main() {
 
                 size_prev_plan = size_prev_path - path_size;
 
-                if (size_prev_plan >= size_plan) {
+                if (size_prev_plan >= carCtl.size_plan) {
 
                   // PLAN AGAIN AND RESET time_prev_path
 
                   size_prev_path = 0;
 
                   // KEEP points of previous path
-                  for (int i = 0; i < size_keep; i++) {
+                  for (int i = 0; i < carCtl.size_keep; i++) {
                     next_x_vals.push_back(previous_path_x[i]);
                     next_y_vals.push_back(previous_path_y[i]);
 
@@ -301,8 +298,8 @@ int main() {
                   conds.clear();
                   d_conds.clear();
                   // point from wich to start new plan
-                  int point_i = size_prev_plan + size_keep - size_kept + 1;
-                  size_kept = size_keep;
+                  int point_i = size_prev_plan + carCtl.size_keep - size_kept + 1;
+                  size_kept = carCtl.size_keep;
                   double t_i = (point_i - 1) * 0.02;
 
 
@@ -321,8 +318,8 @@ int main() {
                   conds = {ss_i, vs_i, as_i, speed_goal, 0};
                   d_conds = {dd_i, vd_i, ad_i, lane_desired * 4. + 2., 0, 0};
 
-                  double t_s = (carCtl.size_horizon - size_keep - 1) * 0.02;
-                  double t_d = (carCtl.size_horizon - size_keep - 1) * 0.02;
+                  double t_s = (carCtl.size_horizon - carCtl.size_keep - 1) * 0.02;
+                  double t_d = (carCtl.size_horizon - carCtl.size_keep - 1) * 0.02;
 
                   vector<combiTraj> combSet; // set of combined trajectories
                   double time_manouver = t_s;
@@ -351,7 +348,7 @@ int main() {
                   lateralTrajectory = combSet[0].Trd;
 
 
-                  for (int i = 0; i < (carCtl.size_horizon - size_keep); i++) {
+                  for (int i = 0; i < (carCtl.size_horizon - carCtl.size_keep); i++) {
                     //generate next points using selected trajectory with a time pace of 0.02 seconds
                     next_s = longTrajectory.getDis(i * 0.02);
                     next_d = lateralTrajectory.getDis(i * 0.02);
