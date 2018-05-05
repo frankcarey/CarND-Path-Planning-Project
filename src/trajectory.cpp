@@ -4,8 +4,11 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <iostream>
+
 #include "trajectory.h"
 
+using namespace std;
 
 combiTraj::combiTraj(Traj T1s, Traj T1d, double Tf)
 {
@@ -254,6 +257,10 @@ void Traj::findMax()
 
 void Traj::setCost(double C)
 {
+  if (isnan(C)) {
+    std::cout << "error!";
+    assert(false);
+  }
   Cost = C;
   CostIsSet = true;
 }
