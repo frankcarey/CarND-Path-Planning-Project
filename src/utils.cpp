@@ -329,6 +329,17 @@ namespace utils {
     return deg;
   }
 
+  double Map::s_relative_to(double s, double relative_to) {
+    if (abs(relative_to - s) > this->max_s/2.){
+      if (s > max_s/2.) {
+        s += max_s;
+      } else {
+        s -= max_s;
+      }
+    }
+    return s;
+  }
+
   double normalize_rad(double deg) {
     double _2xPI = 2 * M_PI;
     deg = fmod(deg, _2xPI);
@@ -789,15 +800,8 @@ namespace utils {
     vector<vector<double>> near_cars;
     for (int i=0; i< sensor_fusion.size(); i++)
     {
-      double sc = sensor_fusion[i][5];
       // If the car is further than half way round the track from us, then measure from the other direction.
-      if (abs(s - sc) > max_s/2.){
-        if (s > max_s/2.) {
-          sc += max_s;
-        } else {
-          sc -= max_s;
-        }
-      }
+      double sc = this->s_relative_to(sensor_fusion[i][5], s);
       double dc = sensor_fusion[i][6];
       double vx = sensor_fusion[i][3];
       double vy = sensor_fusion[i][4];
@@ -824,6 +828,83 @@ namespace utils {
 
   }
 
+  bool Map::collision_test(combiTraj carTrajectory, vector<double> other_car, double time_limit)
+  {
 
+    // Initial position.
+    double s_start = carTrajectory.Trs.getDis(0.);
+    double d_start = carTrajectory.Trd.getDis(0.);
+
+    // Final position.
+    double s_final = carTrajectory.Trs.getDis(time_limit);
+    double d_final = carTrajectory.Trd.getDis(time_limit);
+
+    // Get other car's start status.
+    double other_s_start = this->s_relative_to(other_car[0], s_start);
+    double other_d_start = other_car[1];
+    double other_v_start = other_car[2];
+
+    // Difference of their d and our final d.
+    double d_goal_proximity = abs(other_d_start - d_final);
+    double dt = 0.02;
+    double half_lane_d = 2;
+
+
+    double s_vel, d_vel, d, s;
+    // check for future collisions
+    for (int i=0; i < time_limit/dt ; i++)
+    {
+
+      s_vel = carTrajectory.Trs.getVel(i*dt);
+      d_vel = carTrajectory.Trd.getVel(i*dt);
+      d = carTrajectory.Trd.getDis(i*dt);
+      s = carTrajectory.Trs.getDis(i*dt);
+
+      double d_goal = abs(d - d_final);
+
+      // position of near car at time i*dt
+      double other_s = other_s_start + other_v_start*(i*dt);
+      double other_d = other_d_start;
+
+      // distance from near car at time dt*i
+      double s_distance = s - other_s;
+      double d_distance = abs(d - other_d);
+
+      // The other car is..
+      if (d_distance <= half_lane_d) {
+        // in our lane..
+        if (s_distance <= 0) {
+          // and in front of us ..
+          if (abs(s_distance) <= time_limit/3.*s_vel && (d_goal < half_lane_d)) {
+            // and we want to stay in this lane at this speed, but distance between cars is too small.
+            return true;
+          }
+          if (abs(s_distance) <= time_limit/20.*s_vel && (d_goal > half_lane_d)) {
+            // or we want to change lanes, but distance is too short to change.
+            //return true;
+          }
+        }
+      }
+      else if (d_distance > half_lane_d) {
+        // not in our lane..
+        if(s_distance > 0) {
+          // and is behind us ..
+          if (abs(s_distance) <= 0.5*s_vel && (d_goal_proximity < 2. || d_goal > 7.) ) {
+            // and we are changing lanes toward the car's lane, but they are too close.
+            return true;
+          }
+        }
+        else {
+          // and is ahead of us ..
+          if (abs(s_distance) <= time_limit/3.*s_vel && (d_goal_proximity < 2. || d_goal > 7.) ) {
+            // and we are changing lanes toward the car's lane, but they are too close.
+            return true;
+          }
+        }
+      }
+    }
+    // Otherwise, we should be ok.
+    return false;
+  }
 }
 

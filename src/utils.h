@@ -119,6 +119,9 @@ namespace utils {
 
     //Spline Map::getLocalSpline(Position pt, int n_points);
 
+    bool collision_test(combiTraj carTrajectory, vector<double> other_car, double time_limit);
+
+    double s_relative_to(double s, double relative_to);
   };
 
   constexpr double pi() { return M_PI; }

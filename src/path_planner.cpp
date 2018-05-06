@@ -243,7 +243,7 @@ vector<combiTraj> PathPlanner::generate_trajectories(VehicleController carCtl, v
           double nc_vy = near_cars[idx][4];
           double nc_v = sqrt(nc_vx*nc_vx + nc_vy*nc_vy);
 
-          coll = (comb_traj.collision({nc_s,nc_d,nc_v}, time_horizon)); // use collision method to check for future collisions
+          coll = (carCtl.trackMap->collision_test(comb_traj, {nc_s,nc_d,nc_v}, time_horizon));
           idx++;
         }
         if (!coll)
