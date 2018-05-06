@@ -774,7 +774,55 @@ namespace utils {
 
   }
 
+  vector<vector<double>> Map::get_near_cars(double s, double speed_mph, double time_horizon, vector<vector<double>> sensor_fusion) {
+    // Choose the next state based on the trajectories of the other cars.
+    // select the nearest cars from sensor fusion data
+    // Sensor Fusion Data, a list of all other cars on the same side of the road.
+    //["sensor_fusion"] A 2d vector of cars and then that car's [
+    // * [0] car's unique ID
+    // * [1] car's x position in map coordinates
+    // * [2] car's y position in map coordinates
+    // * [3] car's x velocity in m/s
+    // * [4] car's y velocity in m/s
+    // * [5] car's s position in frenet coordinates. (DO NOT USE)
+    // * [6] car's d position in frenet coordinates. (DO NOT USE)
+    vector<vector<double>> near_cars;
+    for (int i=0; i< sensor_fusion.size(); i++)
+    {
+      double sc = sensor_fusion[i][5];
+      // If the car is further than half way round the track from us, then measure from the other direction.
+      if (abs(s - sc) > max_s/2.){
+        if (s > max_s/2.) {
+          sc += max_s;
+        } else {
+          sc -= max_s;
+        }
+      }
+      double dc = sensor_fusion[i][6];
+      double vx = sensor_fusion[i][3];
+      double vy = sensor_fusion[i][4];
+      double vc = sqrt(vx*vx + vy*vy);
 
+      if (s > sc) // car is behind us
+      {
+        // check if the car is at a distance such that it can reach our car in time_horizon*0.7 seconds at current speed
+        if (vc*time_horizon + sc >= s + speed_mph*0.44704*time_horizon*0.7 - 4.)
+        {
+          near_cars.push_back(sensor_fusion[i]);
+        }
+      }
+      else //car is ahead of us
+      {
+        // check if the car is at a distance that our car can reach in time_horizon seconds at max speed, even if the car decelerates to 1/3 of its current velocity
+        if (vc*time_horizon/3. + sc <= s + speed_mph*0.44704*time_horizon + 4.)
+        {
+          near_cars.push_back(sensor_fusion[i]);
+        }
+      }
+    }
+  return near_cars;
+
+  }
 
 
 }

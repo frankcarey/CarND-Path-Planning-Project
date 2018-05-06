@@ -156,7 +156,7 @@ vector<combiTraj> PathPlanner::generate_trajectories(vector<double> conds_s, vec
   }
 
   // create d trajectories using different time of manouver and final lane
-  vector<double> lanes = {2., 6., 9.5};
+  vector<double> lanes = {2., 6., 10.};
   for (int i=0 ; i < 3 ; i++)
   {
     for (int j=0; j < 3 ; j++)

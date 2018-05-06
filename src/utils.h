@@ -97,6 +97,8 @@ namespace utils {
 
     int ClosestWaypoint(Position pt, vector<double> wp_x, vector<double> wp_y);
 
+    vector<vector<double>> get_near_cars(double s, double speed, double time_horizon, vector<vector<double>> sensor_fusion);
+
     int NextWaypoint(Position pt, vector<double> wp_x, vector<double> wp_y);
 
     FrenetPos getFrenet(Position pt);
