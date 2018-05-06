@@ -75,10 +75,7 @@ int main() {
           double s = j[1]["s"];
           double d = j[1]["d"];
 
-
-          vector<double> previous_path_x = j[1]["previous_path_x"];
-          vector<double> previous_path_y = j[1]["previous_path_y"];
-
+          // We'll return these values back to the simulator.
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
@@ -90,35 +87,30 @@ int main() {
                << yaw_radians << "\n";
 
           carCtl.update(s, d, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
-
-          double time_horizon = (carCtl.size_horizon - 1) * 0.02; // seconds for time horizon of path
           int path_steps_used = (carCtl.size_horizon - carCtl.prev_path_size);
-          double time_manouver = (carCtl.size_horizon - 1) * 0.02;
 
-          vector<vector<double>> near_cars;
-          double next_s; // next s value
-          double next_d; // next d value
-          vector<double> sxy;
-          vector<double> s_conds; // boundary conditions for s
-          vector<double> d_conds; // boundary conditions for d
-          vector<combiTraj> combSet;
           int mct_idx; // index of the minimum cost trajectory
 
           // If the number of path steps used is less than the delay, then pass the same
           // steps back to the simulator. Used for efficiency.
           if (path_steps_used < carCtl.plan_delay) {
             for (int i = 0; i < carCtl.prev_path_size; i++) {
-              next_x_vals.push_back(previous_path_x[i]);
-              next_y_vals.push_back(previous_path_y[i]);
+              next_x_vals.push_back(j[1]["previous_path_x"][i]);
+              next_y_vals.push_back(j[1]["previous_path_y"][i]);
             }
           } else {
+
             // We've got to create new points then. If we're starting from scratch,
             // then the trajectories are not valid, so assume we're stopped.
+            vector<double> s_state; // s state {s pos, s vel, s acc, s speed, ? }
+            vector<double> d_state; // d state {d pos, d vel, d acc, curr lane d, ?}
             if (carCtl.prev_path_size == 0) {
+
               // Assume we're stopped, so velocity and acceleration are all zero.
-              s_conds = {s, 0, 0, carCtl.speed_limit, 0};
-              d_conds = {d, 0, 0, carCtl.get_lane() * 4. + 2., 0, 0};
+              s_state = {s, 0, 0, carCtl.speed_limit, 0};
+              d_state = {d, 0, 0, carCtl.get_lane() * 4. + 2., 0, 0};
             } else {
+
               // Assume we're moving. Find out at which time we're at along our last trajectory.
               double last_time = path_steps_used * 0.02;
 
@@ -130,53 +122,53 @@ int main() {
               }
               double s_vel = sTrajectory.getVel(last_time); // velocity along s at last_time
               double s_acc = sTrajectory.getAcc(last_time); // acceleration along s at last_time
-
               d = dTrajectory.getDis(last_time); // d position at last_time
               double d_vel = dTrajectory.getVel(last_time); // velocity along d at last_time
               double d_acc = dTrajectory.getAcc(last_time); // acceleration along d at last_time
 
-              // push conditions
-              s_conds = {s, s_vel, s_acc, carCtl.speed_limit, 0};
-              d_conds = {d, d_vel, d_acc, carCtl.get_lane() * 4. + 2., 0, 0};
+              s_state = {s, s_vel, s_acc, carCtl.speed_limit, 0};
+              d_state = {d, d_vel, d_acc, carCtl.get_lane() * 4. + 2., 0, 0};
             }
 
-            near_cars = carCtl.trackMap->get_near_cars(s, speed_mph, time_horizon, j[1]["sensor_fusion"]);
+            // How many seconds ahead do we need to calculate a trajectory for?
+            double time_horizon = (carCtl.size_horizon - 1) * 0.02;
 
-            //generate set of unidimensional trajectories
-            combSet = planner.generate_trajectories(carCtl, s_conds, d_conds, time_horizon, carCtl.get_lane(), near_cars);
+            // Get the cars that are near by during the time_horizon to test for collisions.
+            vector<vector<double>> near_cars = carCtl.trackMap->get_near_cars(s, speed_mph, time_horizon, j[1]["sensor_fusion"]);
 
-            // continue to generate trajectories if no suitable trajectory is found, until time_maneuver is lower than 2 seconds
-            while (combSet.empty() && time_manouver > 2.) {
+            // Generate a set of trajectories and costs using the s and d states.
+            vector<combiTraj> combSet = planner.generate_trajectories(carCtl, s_state, d_state, time_horizon, carCtl.get_lane(), near_cars);
 
-              //generate set of unidimensional trajectories
-              combSet = planner.generate_trajectories(carCtl, s_conds, d_conds, time_manouver, carCtl.get_lane(), near_cars);
-
-              // find minimal cost trajectory
-              if (~combSet.empty()) {
-                time_manouver *= 0.9; // if no trajectory is found, repeat trajectories generation with a smaller time horizon
-              }
+            // Rarely, we can't find any trajectory with the full time horizon, like in crowded traffic,
+            // so we lower the time_horizon until we do.
+            while (combSet.empty() && time_horizon > 2.) {
+              time_horizon *= 0.9;
+              combSet = planner.generate_trajectories(carCtl, s_state, d_state, time_horizon, carCtl.get_lane(), near_cars);
             }
+
+            // Find the best trajectories in the set with the minimal cost.
             mct_idx = planner.minimal_cost_trajectory(combSet);
+            sTrajectory = combSet[mct_idx].Trs;
+            dTrajectory = combSet[mct_idx].Trd;
 
-            sTrajectory = combSet[mct_idx].Trs;  // set s trajectory
-            dTrajectory = combSet[mct_idx].Trd; // set d trajectory
-
-            cout << "next_s" << next_s << "\n";
-            //generate next points using selected trajectory with a time pace of 0.02 seconds
+            // Generate x,y coordinates from the best trajectories.
+            double next_s;
+            double next_d;
+            vector<double> xy_vector;
             for (int i = 0; i < carCtl.size_horizon; i++) {
               next_s = sTrajectory.getDis(i * 0.02); // get s value at time i*0.02
               next_d = dTrajectory.getDis(i * 0.02); // get d value at time d*0.02
 
-              // convert  to  global coordinates
-              sxy = utils::parabolicGetXY(next_s, next_d, carCtl.trackMap->waypoints_s,
+              // Convert s and d to map coordinates.
+              xy_vector = utils::parabolicGetXY(next_s, next_d, carCtl.trackMap->waypoints_s,
                                           carCtl.trackMap->waypoints_x, carCtl.trackMap->waypoints_y);
 
-              // pass to simulator
-              next_x_vals.push_back(sxy[0]);
-              next_y_vals.push_back(sxy[1]);
+              next_x_vals.push_back(xy_vector[0]);
+              next_y_vals.push_back(xy_vector[1]);
             }
           }
 
+          // Send the x and y values back to the simulator.
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
