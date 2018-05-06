@@ -106,7 +106,7 @@ namespace vehicle {
     const double acc_limit = 10.0; // max acceleration in m/2^2
     const double jerk_limit = 10.0; // max Jerk in m/s^3
     const int size_horizon = 250; // size of path to pass to simulator for each new path
-    const int size_plan = 10; // size of path already driven after which a new path must be planned
+    const int plan_delay = 10; // size of path already driven after which a new path must be planned
     const int size_keep = 0; // points of previous path to add to new path
 
     int prev_path_size;

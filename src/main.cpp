@@ -40,10 +40,13 @@ int main() {
   //car.configure(road_data);
   VehicleController carCtl = VehicleController(car, &fsm, &trackMap);
 
+  // Keep trajectories between iterations so we can use it
+  // to easily calculate our current position, velocity, and acceleration
+  // independently for s and d.
   Traj sTrajectory; // trajectory along s
   Traj dTrajectory; //trajectory along d
 
-  h.onMessage([&carCtl, &max_s, &sTrajectory, &dTrajectory](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
+  h.onMessage([&carCtl, &sTrajectory, &dTrajectory](uWS::WebSocket<uWS::SERVER> ws, const char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -88,82 +91,69 @@ int main() {
 
           carCtl.update(s, d, yaw_radians, speed_mph, j[1]["previous_path_x"].size());
 
-          int lane_desired = (int) floor(d/4);
           double time_horizon = (carCtl.size_horizon - 1) * 0.02; // seconds for time horizon of path
-          double time_plan =  (carCtl.size_plan -1) * 0.02; // seconds between each path plannings
+          int path_steps_used = (carCtl.size_horizon - carCtl.prev_path_size);
+          double time_manouver = (carCtl.size_horizon - 1) * 0.02;
+
           vector<vector<double>> near_cars;
-          double pos_x;
-          double pos_y;
-          double angle;
           double next_s; // next s value
           double next_d; // next d value
           vector<double> sxy;
-
           vector<double> s_conds; // boundary conditions for s
           vector<double> d_conds; // boundary conditions for d
-
-          vector<Traj> sSet;
-          vector<Traj> dSet;
-          vector<double> max_min;
           vector<combiTraj> combSet;
+          int mct_idx; // index of the minimum cost trajectory
 
-          double t_s = (carCtl.size_horizon - 1) * 0.02;
-          double t_d = (carCtl.size_horizon - 1) * 0.02;
-          double time_manouver = t_s;
-
-          int mct_idx;
-          int path_steps_used = (carCtl.size_horizon - carCtl.prev_path_size);
-
-          // CURRENT PATH IS VALID UNTIL NEXT PLAN SO CHECK TIME ELAPSED FROM PREVIOUS PLANNING
-          if (path_steps_used < carCtl.size_plan) {
-            // NO PLANNING BECAUSE LAST PATH IS NOT EXPIRED
+          // If the number of path steps used is less than the delay, then pass the same
+          // steps back to the simulator. Used for efficiency.
+          if (path_steps_used < carCtl.plan_delay) {
             for (int i = 0; i < carCtl.prev_path_size; i++) {
               next_x_vals.push_back(previous_path_x[i]);
               next_y_vals.push_back(previous_path_y[i]);
             }
           } else {
-
-            if (carCtl.prev_path_size == 0) { // intialize first path
-              // set intial s and d conditions
+            // We've got to create new points then. If we're starting from scratch,
+            // then the trajectories are not valid, so assume we're stopped.
+            if (carCtl.prev_path_size == 0) {
+              // Assume we're stopped, so velocity and acceleration are all zero.
               s_conds = {s, 0, 0, carCtl.speed_limit, 0};
-              d_conds = {d, 0, 0, 0 * 4. + 2., 0, 0};
-
+              d_conds = {d, 0, 0, carCtl.get_lane() * 4. + 2., 0, 0};
             } else {
-              // prepare new boundary conditions
-              s_conds.clear();
-              d_conds.clear();
+              // Assume we're moving. Find out at which time we're at along our last trajectory.
               double last_time = path_steps_used * 0.02;
 
-              double ss_i = sTrajectory.getDis(last_time); // s position at time t_i
-              while (ss_i > max_s) {
-                ss_i -= max_s;
+              // Use the last saved trajectories to figure out where we are and our
+              // velocity and acceleration.
+              s = sTrajectory.getDis(last_time);
+              while (s > carCtl.trackMap->max_s) {
+                s -= carCtl.trackMap->max_s;
               }
-              double vs_i = sTrajectory.getVel(last_time); // velocity along s at time t_ti
-              double as_i = sTrajectory.getAcc(last_time); // acceleration along s at time t_i
+              double s_vel = sTrajectory.getVel(last_time); // velocity along s at last_time
+              double s_acc = sTrajectory.getAcc(last_time); // acceleration along s at last_time
 
-              double dd_i = dTrajectory.getDis(last_time); // d position at time t_i
-              double vd_i = dTrajectory.getVel(last_time); // velocity along d at time t_ti
-              double ad_i = dTrajectory.getAcc(last_time); // acceleration along d at time t_i
+              d = dTrajectory.getDis(last_time); // d position at last_time
+              double d_vel = dTrajectory.getVel(last_time); // velocity along d at last_time
+              double d_acc = dTrajectory.getAcc(last_time); // acceleration along d at last_time
 
               // push conditions
-              s_conds = {ss_i, vs_i, as_i, carCtl.speed_limit, 0};
-              d_conds = {dd_i, vd_i, ad_i, lane_desired * 4. + 2., 0, 0};
+              s_conds = {s, s_vel, s_acc, carCtl.speed_limit, 0};
+              d_conds = {d, d_vel, d_acc, carCtl.get_lane() * 4. + 2., 0, 0};
             }
 
             near_cars = carCtl.trackMap->get_near_cars(s, speed_mph, time_horizon, j[1]["sensor_fusion"]);
 
             //generate set of unidimensional trajectories
-            combSet = planner.generate_trajectories(carCtl, s_conds, d_conds, time_horizon, lane_desired, near_cars);
+            combSet = planner.generate_trajectories(carCtl, s_conds, d_conds, time_horizon, carCtl.get_lane(), near_cars);
 
             // continue to generate trajectories if no suitable trajectory is found, until time_maneuver is lower than 2 seconds
             while (combSet.empty() && time_manouver > 2.) {
 
               //generate set of unidimensional trajectories
-              combSet = planner.generate_trajectories(carCtl, s_conds, d_conds, time_manouver, lane_desired, near_cars);
+              combSet = planner.generate_trajectories(carCtl, s_conds, d_conds, time_manouver, carCtl.get_lane(), near_cars);
 
               // find minimal cost trajectory
               if (~combSet.empty()) {
-                time_manouver *= 0.9; // if no trajectory is found, repeate trajectories generation with a smaller time horizon
+                time_manouver *= 0.9; // if no trajectory is found, repeat trajectories generation with a smaller time horizon
               }
             }
             mct_idx = planner.minimal_cost_trajectory(combSet);
