@@ -70,10 +70,8 @@ double PathPlanner::calculate_cost(VehicleController &ctrl, vector<Vehicle> &can
 }
 
 // generate set of trajectories s(t) and d(t)
-vector<combiTraj> PathPlanner::generate_trajectories(vector<double> conds_s, vector<double> conds_d,
-                                                          double time_horizon,
-                                                          double s_goal, double l_desired, vector<double> limits,
-                                                          vector< vector<double> > & near_cars)
+vector<combiTraj> PathPlanner::generate_trajectories(VehicleController carCtl, vector<double> conds_s, vector<double> conds_d,
+                                                          double time_horizon, double l_desired, vector< vector<double> > & near_cars)
 {
 
   // This function generates a full set of unidimensional trajectories for s and d using jerk minimizing polynomials
@@ -96,13 +94,7 @@ vector<combiTraj> PathPlanner::generate_trajectories(vector<double> conds_s, vec
   vector<double> conds;
   vector<double> d_conds;
 
-  double speed_limit = limits[0];
-  double acc_limit = limits[1];
-  double Jerk_limit = limits[2];
-  double speed_goal = s_goal;
-  double speed_minimum = 8.;
   double lane_desired = l_desired;
-
 
   vector<Traj> longSet; // return set
   vector<Traj> lateSet; // return set
@@ -131,7 +123,7 @@ vector<combiTraj> PathPlanner::generate_trajectories(vector<double> conds_s, vec
       conds.push_back(conds_s[0]);
       conds.push_back(conds_s[1]);
       conds.push_back(conds_s[2]);
-      conds.push_back(speed_limit - (speed_limit - speed_minimum)*i/6. );
+      conds.push_back(carCtl.speed_limit - (carCtl.speed_limit - carCtl.speed_minimum)*i/6. );
       conds.push_back(conds_s[4]);
 
       double Tj = time_horizon;
@@ -144,7 +136,7 @@ vector<combiTraj> PathPlanner::generate_trajectories(vector<double> conds_s, vec
 
         longSet.push_back(s_traj);
         // useful variables for cost normalization
-        double ds = abs(s_traj.getVel(s_traj.T) - speed_limit);
+        double ds = abs(s_traj.getVel(s_traj.T) - carCtl.speed_limit);
         max_ds = max(max_ds,ds);
         min_ds = min(min_ds,ds);
         max_avgJ = max(max_avgJ, s_traj.avg_J);
@@ -201,7 +193,7 @@ vector<combiTraj> PathPlanner::generate_trajectories(vector<double> conds_s, vec
     {
       if (h==0)
       {
-        double ds = abs(longSet[k].getVel(longSet[k].T) - speed_limit);
+        double ds = abs(longSet[k].getVel(longSet[k].T) - carCtl.speed_limit);
         ds = (ds - min_ds) / (max_ds - min_ds);   // normalized distance from desired speed
         double Tc = (longSet[k].T - min_T) / (max_T - min_T); // normalized time to complete manouver
         double Jc = (longSet[k].avg_J - min_avgJ) / (max_avgJ - min_avgJ); // normalized average Jerk
@@ -218,7 +210,7 @@ vector<combiTraj> PathPlanner::generate_trajectories(vector<double> conds_s, vec
       }
 
       combiTraj comb_traj = combiTraj(longSet[k], lateSet[h], time_horizon); // combine 2 trajectories into 1 combiTraj
-      int wrong_dyn = comb_traj.dynamic(speed_limit, acc_limit, Jerk_limit); // check for dynamic limit trespass
+      int wrong_dyn = comb_traj.dynamic(carCtl.speed_limit, carCtl.acc_limit, carCtl.jerk_limit); // check for dynamic limit trespass
 
       if (wrong_dyn>0) {dyn_rej[wrong_dyn-1]++;}
 

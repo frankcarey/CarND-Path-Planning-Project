@@ -122,9 +122,7 @@ int main() {
             vector<double> max_min;
 
             //generate set of unidimensional trajectories
-            vector<combiTraj> combSet = planner.generate_trajectories(s_conds, d_conds, time_horizon, carCtl.speed_limit,
-                                                                       lane_desired,
-                                                                       {carCtl.speed_limit, carCtl.acc_limit, carCtl.jerk_limit}, near_cars);
+            vector<combiTraj> combSet = planner.generate_trajectories(carCtl, s_conds, d_conds, time_horizon, lane_desired, near_cars);
 
             // find minimal cost trajectory
             double min_Comb_Cost = 10e10;
@@ -217,9 +215,7 @@ int main() {
                 vector<double> max_min;
 
                 //generate set of unidimensional trajectories
-                combSet = planner.generate_trajectories(s_conds, d_conds, time_manouver,
-                                                        carCtl.speed_limit, lane_desired,
-                                                        {carCtl.speed_limit, carCtl.acc_limit, carCtl.jerk_limit}, near_cars);
+                combSet = planner.generate_trajectories(carCtl, s_conds, d_conds, time_manouver, lane_desired, near_cars);
 
                 // find minimal cost trajectory
                 if (~combSet.empty()) {
