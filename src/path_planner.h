@@ -20,5 +20,7 @@ public:
   vector<combiTraj> generate_trajectories(VehicleController carCtl, vector<double> conds_s, vector<double> conds_d,
                                           double time_horizon, double l_desired, vector< vector<double> > & near_cars);
   bool funcia (combiTraj i, combiTraj j);
+
+  int minimal_cost_trajectory(vector<combiTraj> combSet);
 };
 #endif //PATH_PLANNING_PATH_PLANNER_H

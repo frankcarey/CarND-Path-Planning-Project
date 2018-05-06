@@ -69,6 +69,21 @@ double PathPlanner::calculate_cost(VehicleController &ctrl, vector<Vehicle> &can
   return cost;
 }
 
+
+int PathPlanner::minimal_cost_trajectory(vector<combiTraj> combSet) {
+  // find minimal cost trajectory
+  double min_Comb_Cost = 10e10;
+  int min_Comb_idx = 0;
+  for (int k = 0; k < combSet.size(); k++) {
+    if (min_Comb_Cost > combSet[k].Cost) {
+      min_Comb_Cost = combSet[k].Cost;
+      min_Comb_idx = k;
+    }
+  }
+  return min_Comb_idx;
+}
+
+
 // generate set of trajectories s(t) and d(t)
 vector<combiTraj> PathPlanner::generate_trajectories(VehicleController carCtl, vector<double> conds_s, vector<double> conds_d,
                                                           double time_horizon, double l_desired, vector< vector<double> > & near_cars)
