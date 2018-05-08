@@ -349,7 +349,7 @@ namespace vehicle {
     Returns a true if a vehicle is found ahead of the current vehicle, false otherwise. The passed reference
     rVehicle is updated if a vehicle is found.
     */
-    double min_s = RLIM_INFINITY;
+    double min_s = 10e10;
     int closest_vehicle_found = 0; // All trajectories for cars don't start with 0, so 0 is not found.
     FrenetPos car = this->vehicle.position();
 
