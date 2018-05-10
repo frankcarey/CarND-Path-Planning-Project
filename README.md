@@ -1,6 +1,8 @@
 Path Planning
 ==========
 
+<a href="https://vimeo.com/frankcarey" target="_blank"><img src="./assets/car-image.png" alt="Car Image" width="640" height="480" border="10" /></a>
+
 Model Documentation
 -------------
 
